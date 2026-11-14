@@ -4,7 +4,9 @@ import { content } from '../content/store'
 import { GEN_2D, paintClone } from '../core/gen2d'
 import { putMedia, resolveMedia } from '../core/media'
 import { esc, h, money, timeAgo, uid } from '../core/util'
-import { payments } from '../payments/bus'
+import { payments, type PaymentEvent } from '../payments/bus'
+import { DEFAULT_ADMIN_HASH } from '../content/defaults'
+import { detectBackend } from '../payments/provider'
 
 type Field = { k: string; label: string; type?: 'text' | 'number' | 'textarea' | 'select' | 'media' | 'tags' | 'bool' | 'date'; options?: string[] }
 type ListKey = 'artworks' | 'products' | 'films' | 'games' | 'events'
@@ -106,19 +108,39 @@ export function openAdmin(ui: HTMLElement, onClose: () => void) {
     el.remove()
     onClose()
   }
-  if (sessionStorage.getItem('cm.admin') === content.data.settings.adminHash) return panel(el, close)
-  el.innerHTML = `<div class="login glass"><span class="star">✦</span><h2 class="serif">SuperAdmin</h2><p class="note">${L('Panel curatorial de Cyber Museum. Contraseña demo:', 'Cyber Museum curatorial panel. Demo password:')} <code>cybermuseo</code></p>
-    <form><input type="password" placeholder="${L('Contraseña', 'Password')}" autofocus><div class="row"><button class="btn primary">${L('Entrar', 'Sign in')}</button><button type="button" class="btn ghost" data-back>${L('Volver al museo', 'Back to the museum')}</button></div><p class="note err"></p></form></div>`
+  if (sessionStorage.getItem('cm.admin') === DEFAULT_ADMIN_HASH) return panel(el, close)
+  el.innerHTML = `<div class="login glass"><span class="star">✦</span><h2 class="serif">SuperAdmin</h2><p class="note">${L('Introduce el PIN de acceso', 'Enter the access PIN')}</p>
+    <div class="pin">${'<i></i>'.repeat(4)}</div>
+    <div class="pad">${[1, 2, 3, 4, 5, 6, 7, 8, 9, '', 0, '⌫'].map((k) => (k === '' ? '<span></span>' : `<button type="button" data-k="${k}">${k}</button>`)).join('')}</div>
+    <p class="note err"></p><button type="button" class="btn ghost sm" data-back>${L('Volver al museo', 'Back to the museum')}</button></div>`
   el.querySelector('[data-back]')!.addEventListener('click', close)
-  el.querySelector('form')!.addEventListener('submit', async (e) => {
-    e.preventDefault()
-    const v = (el.querySelector('input') as HTMLInputElement).value
-    const hash = await sha(v)
-    if (hash === content.data.settings.adminHash) {
+  let pin = ''
+  const dots = el.querySelectorAll('.pin i')
+  const press = async (k: string) => {
+    if (k === '⌫') pin = pin.slice(0, -1)
+    else if (/^\d$/.test(k) && pin.length < 4) pin += k
+    dots.forEach((d, i) => d.classList.toggle('on', i < pin.length))
+    if (pin.length < 4) return
+    const hash = await sha(pin)
+    if (hash === DEFAULT_ADMIN_HASH) {
       sessionStorage.setItem('cm.admin', hash)
+      sessionStorage.setItem('cm.adminPin', pin)
+      window.removeEventListener('keydown', onKey)
       panel(el, close)
-    } else (el.querySelector('.err') as HTMLElement).textContent = L('Contraseña incorrecta.', 'Wrong password.')
-  })
+    } else {
+      ;(el.querySelector('.err') as HTMLElement).textContent = L('PIN incorrecto.', 'Wrong PIN.')
+      el.querySelector('.pin')!.classList.add('shake')
+      setTimeout(() => el.querySelector('.pin')?.classList.remove('shake'), 500)
+      pin = ''
+      dots.forEach((d) => d.classList.remove('on'))
+    }
+  }
+  const onKey = (e: KeyboardEvent) => {
+    if (/^\d$/.test(e.key)) press(e.key)
+    else if (e.key === 'Backspace') press('⌫')
+  }
+  window.addEventListener('keydown', onKey)
+  el.querySelectorAll<HTMLButtonElement>('[data-k]').forEach((b) => (b.onclick = () => press(b.dataset.k!)))
 }
 
 function panel(el: HTMLElement, close: () => void) {
@@ -126,13 +148,14 @@ function panel(el: HTMLElement, close: () => void) {
     ['resumen', L('Resumen', 'Overview')],
     ['salas', L('Salas', 'Halls')],
     ['artworks', L('Obras', 'Artworks')],
+    ['solicitudes', L('Solicitudes', 'Submissions')],
     ['temporal', L('Temporal · Convocatoria', 'Temporary · Open call')],
     ['films', L('Videosala', 'Screening room')],
     ['games', L('Videojuegos', 'Videogames')],
     ['products', L('Tienda', 'Shop')],
     ['events', L('Eventos', 'Events')],
     ['builder', L('Constructor procedural', 'Procedural builder')],
-    ['pagos', L('Pagos', 'Payments')],
+    ['pagos', L('Pagos e ingresos', 'Payments & revenue')],
     ['ajustes', L('Ajustes', 'Settings')],
   ]
   let tab = 'resumen'
@@ -156,16 +179,34 @@ function panel(el: HTMLElement, close: () => void) {
 const views: Record<string, (m: HTMLElement, rerender: () => void) => void> = {
   resumen(m) {
     const c = content.data
-    m.innerHTML = `<h1 class="serif">${L('Resumen', 'Overview')}</h1><p class="lead">Todo lo que edites aquí se aplica al edificio en tiempo real y se guarda en este navegador. Usa Ajustes → Exportar para respaldar o mover el contenido.</p>
+    const pend = c.submissions.filter((x) => (x.status ?? 'pendiente') === 'pendiente').length
+    const today = payments.list.filter((p) => Date.now() - p.at < 864e5)
+    m.innerHTML = `<h1 class="serif">${L('Resumen', 'Overview')}</h1><p class="lead">${L('Todo lo que edites aquí se aplica al edificio en tiempo real. Usa Ajustes → Exportar para respaldar o mover el contenido.', 'Everything you edit here is applied to the building in real time. Use Settings → Export to back up or move content.')}</p>
       <div class="cards">${[
-        ['Obras', c.artworks.length],
-        ['Productos', c.products.length],
-        ['Eventos', c.events.length],
-        ['Propuestas', c.submissions.length],
-        ['Pagos', payments.list.length],
-        ['Recaudado', money(payments.total())],
+        [L('Ingresos totales', 'Total revenue'), money(payments.total())],
+        [L('Últimas 24 h', 'Last 24 h'), money(today.reduce((s, p) => s + p.amount, 0))],
+        [L('Pagos', 'Payments'), payments.list.length],
+        [L('Ticket promedio', 'Average ticket'), money(payments.list.length ? payments.total() / payments.list.length : 0)],
+        [L('Solicitudes pendientes', 'Pending submissions'), pend],
+        [L('Obras', 'Artworks'), c.artworks.length],
       ].map(([k, v]) => `<div class="stat glass"><small>${k}</small><b>${v}</b></div>`).join('')}</div>
-      <div class="sec glass"><h3 class="serif">Últimos pagos</h3>${payTable(8)}</div>`
+      ${revenueCharts(payments.list)}
+      <div class="sec glass"><h3 class="serif">${L('Últimos pagos', 'Latest payments')}</h3>${payTable(8)}</div>`
+  },
+  solicitudes(m, rr) {
+    const subs = content.data.submissions
+    let filter = (m.dataset.filter as string) || 'todas'
+    const count = (st: string) => subs.filter((s) => (s.status ?? 'pendiente') === st).length
+    const shown = subs.filter((s) => filter === 'todas' || (s.status ?? 'pendiente') === filter)
+    m.innerHTML = `<h1 class="serif">${L('Solicitudes de convocatoria', 'Open call submissions')}</h1><p class="lead">${L('Revisa, aprueba o rechaza las propuestas que llegan desde la sala de Exposiciones Temporales.', 'Review, approve or reject proposals sent from the Temporary Exhibitions hall.')}</p>
+      <div class="row" style="margin-bottom:14px">${[['todas', L('Todas', 'All'), subs.length], ['pendiente', L('Pendientes', 'Pending'), count('pendiente')], ['aprobada', L('Aprobadas', 'Approved'), count('aprobada')], ['rechazada', L('Rechazadas', 'Rejected'), count('rechazada')]].map(([k, l, n]) => `<button class="btn sm ${filter === k ? 'primary' : ''}" data-filter="${k}">${l} · ${n}</button>`).join('')}</div>
+      <div class="subs">${shown.map((s) => `<div class="sub sec glass st-${s.status ?? 'pendiente'}"><div class="row" style="justify-content:space-between"><div><span class="kicker">${timeAgo(s.at)} · ${esc(s.status ?? 'pendiente')}</span><h3 class="serif">${esc(s.title)}</h3><small>${esc(s.name)} · <a href="mailto:${esc(s.email)}">${esc(s.email)}</a>${s.link ? ` · <a href="${esc(s.link)}" target="_blank" rel="noopener">${L('portafolio', 'portfolio')}</a>` : ''}</small></div>
+        <div class="row"><button class="btn sm" data-st="aprobada" data-id="${s.id}">✓ ${L('Aprobar', 'Approve')}</button><button class="btn sm ghost" data-st="rechazada" data-id="${s.id}">✕ ${L('Rechazar', 'Reject')}</button><button class="btn sm ghost" data-st="pendiente" data-id="${s.id}">↺</button><button class="btn sm ghost" data-del="${s.id}">${L('Eliminar', 'Delete')}</button></div></div>
+        <p class="note" style="margin:10px 0">${esc(s.message)}</p><div class="row"><input data-note="${s.id}" placeholder="${L('Nota curatorial interna', 'Internal curatorial note')}" value="${esc(s.note ?? '')}" style="flex:1"><button class="btn sm" data-savenote="${s.id}">${L('Guardar nota', 'Save note')}</button></div></div>`).join('') || `<p class="note">${L('No hay solicitudes en esta vista.', 'No submissions in this view.')}</p>`}</div>`
+    m.querySelectorAll<HTMLButtonElement>('[data-filter]').forEach((b) => (b.onclick = () => ((m.dataset.filter = b.dataset.filter!), rr())))
+    m.querySelectorAll<HTMLButtonElement>('[data-st]').forEach((b) => (b.onclick = () => (content.update((d) => { const x = d.submissions.find((s) => s.id === b.dataset.id); if (x) x.status = b.dataset.st as any }), rr())))
+    m.querySelectorAll<HTMLButtonElement>('[data-savenote]').forEach((b) => (b.onclick = () => content.update((d) => { const x = d.submissions.find((s) => s.id === b.dataset.savenote); if (x) x.note = (m.querySelector(`[data-note="${b.dataset.savenote}"]`) as HTMLInputElement).value })))
+    m.querySelectorAll<HTMLButtonElement>('[data-del]').forEach((b) => (b.onclick = () => confirm(L('¿Eliminar?', 'Delete?')) && (content.update((d) => (d.submissions = d.submissions.filter((s) => s.id !== b.dataset.del))), rr())))
   },
   salas(m, rr) {
     const c = content.data
@@ -233,9 +274,10 @@ const views: Record<string, (m: HTMLElement, rerender: () => void) => void> = {
     const s = content.data.settings
     m.innerHTML = `<h1 class="serif">${L('Pagos', 'Payments')}</h1><p class="lead">Cada pago confirmado se emite al bus de pagos: enciende la nube gaussiana, cambia la luz del edificio, genera ondas en el piso y planta una flor en el jardín, en todos los visitantes conectados.</p>
       <div class="sec glass"><h3 class="serif">Simulador</h3><div class="row">${[20, 100, 500, 2000].map((a) => `<button class="btn sm" data-sim="${a}">Simular ${money(a)}</button>`).join('')}<button class="btn sm" data-burst>Ráfaga ×10</button></div></div>
-      <div class="sec glass"><h3 class="serif">Integración pey (siguiente fase)</h3>
-        <p class="note">El navegador nunca guarda la API key. Un backend propio expone <code>POST /checkout</code> (llama a <code>api.pey.mx/codi/qr</code> o <code>/payment-link/create</code>) y <code>GET /events</code> (SSE con los webhooks <code>codi.qr.payment_received</code> / <code>payment_link.status_updated</code> validados). Deja vacío para usar el modo demo.</p>
-        <div class="row"><input data-backend placeholder="https://api.tu-backend.mx" value="${esc(s.peyBackend)}" style="flex:1"><button class="btn primary sm" data-save>${L('Guardar', 'Save')}</button></div></div>
+      <div class="sec glass"><h3 class="serif">pey · CoDi <span class="chip" data-peystate>…</span></h3>
+        <p class="note">${L('La API key vive sólo en el backend (variable <code>PEY_API_KEY</code> de las funciones <code>/api</code>). El museo crea un QR CoDi con <code>POST /codi/qr</code>, consulta su estado con <code>GET /transaction/codi/qr/{id}</code> y valida los webhooks <code>codi.qr.payment_received</code> con firma Standard Webhooks. Deja vacío para usar las funciones del mismo dominio.', 'The API key only lives on the backend (<code>PEY_API_KEY</code> of the <code>/api</code> functions). The museum creates a CoDi QR with <code>POST /codi/qr</code>, polls <code>GET /transaction/codi/qr/{id}</code> and verifies <code>codi.qr.payment_received</code> webhooks with Standard Webhooks signatures. Leave empty to use same-origin functions.')}</p>
+        <div class="row"><input data-backend placeholder="./api" value="${esc(s.peyBackend)}" style="flex:1"><button class="btn primary sm" data-save>${L('Guardar', 'Save')}</button></div>
+        <div data-peytx style="margin-top:12px"></div></div>
       <div class="sec glass"><h3 class="serif">Historial</h3>${payTable(60)}<div class="row" style="margin-top:10px"><button class="btn sm ghost" data-clear>Borrar historial</button></div></div>`
     const names = ['Lía', 'Kai', 'Mara', 'Noa', 'Iker', 'Vera', 'Antu', 'Sol']
     const sim = (a: number) => payments.ingest(payments.make(a, 'Donación simulada', 'donacion', names[Math.floor(Math.random() * names.length)], 'sim'))
@@ -246,6 +288,7 @@ const views: Record<string, (m: HTMLElement, rerender: () => void) => void> = {
     })
     m.querySelector('[data-save]')!.addEventListener('click', () => (content.update((d) => (d.settings.peyBackend = (m.querySelector('[data-backend]') as HTMLInputElement).value.trim())), rr()))
     m.querySelector('[data-clear]')!.addEventListener('click', () => confirm('¿Borrar historial de pagos?') && (payments.clear(), rr()))
+    peyPanel(m)
   },
   ajustes(m, rr) {
     const s = content.data.settings
@@ -254,19 +297,10 @@ const views: Record<string, (m: HTMLElement, rerender: () => void) => void> = {
         <label><span><input type="checkbox" data-k="multiplayer" ${s.multiplayer ? 'checked' : ''}> Activar multijugador P2P</span></label>
         <label>Nombre de la sala de red<input data-k="roomName" value="${esc(s.roomName)}"></label>
       </div><div class="row"><button class="btn primary sm" data-save>${L('Guardar', 'Save')}</button></div></div>
-      <div class="sec glass"><h3 class="serif">Contraseña</h3><div class="row"><input type="password" data-pw placeholder="Nueva contraseña"><button class="btn sm" data-setpw>Cambiar</button></div><p class="note">Protección local de demo. Para producción, el panel deberá autenticarse contra el backend.</p></div>
       <div class="sec glass"><h3 class="serif">Respaldo</h3><div class="row"><button class="btn sm" data-export>Exportar JSON</button><label class="btn sm">Importar JSON<input type="file" accept="application/json" data-import hidden></label><button class="btn sm ghost" data-reset>Restaurar contenido original</button></div></div>`
     m.querySelector('[data-save]')!.addEventListener('click', () => {
       content.update((d) => m.querySelectorAll<HTMLInputElement>('[data-k]').forEach((i) => ((d.settings as any)[i.dataset.k!] = i.type === 'checkbox' ? i.checked : i.value)))
       rr()
-    })
-    m.querySelector('[data-setpw]')!.addEventListener('click', async () => {
-      const v = (m.querySelector('[data-pw]') as HTMLInputElement).value
-      if (v.length < 4) return alert('Mínimo 4 caracteres')
-      const hsh = await sha(v)
-      content.update((d) => (d.settings.adminHash = hsh))
-      sessionStorage.setItem('cm.admin', hsh)
-      alert('Contraseña actualizada')
     })
     m.querySelector('[data-export]')!.addEventListener('click', () => {
       const a = h('a', { href: URL.createObjectURL(new Blob([content.export()], { type: 'application/json' })), download: 'cyber-museum-content.json' })
@@ -284,6 +318,65 @@ const views: Record<string, (m: HTMLElement, rerender: () => void) => void> = {
     })
     m.querySelector('[data-reset]')!.addEventListener('click', () => confirm('¿Restaurar el contenido original? Se perderán tus cambios.') && (content.reset(), rr()))
   },
+}
+
+async function peyPanel(m: HTMLElement) {
+  const state = m.querySelector('[data-peystate]') as HTMLElement
+  const box = m.querySelector('[data-peytx]') as HTMLElement
+  const backend = await detectBackend()
+  state.textContent = backend ? L('conectado', 'connected') : L('modo demo', 'demo mode')
+  state.classList.toggle('on', !!backend)
+  if (!backend) return
+  try {
+    const r = await fetch(backend.replace(/\/$/, '') + '/transactions', { headers: { 'x-admin-pin': sessionStorage.getItem('cm.adminPin') ?? '' }, cache: 'no-store' })
+    const j = await r.json()
+    const items = (j.items ?? []) as any[]
+    const paid = items.filter((t) => t.status === 'PAID')
+    box.innerHTML = `<div class="cards"><div class="stat glass"><small>${L('Cobrado en pey', 'Collected on pey')}</small><b>${money(paid.reduce((s, t) => s + Number(t.amount || 0), 0))}</b></div><div class="stat glass"><small>${L('Transacciones', 'Transactions')}</small><b>${items.length}</b></div></div>
+      <table><tr><th>${L('Fecha', 'Date')}</th><th>${L('Concepto', 'Concept')}</th><th>${L('Estado', 'Status')}</th><th>${L('Monto', 'Amount')}</th></tr>${items.slice(0, 30).map((t) => `<tr><td>${t.dateCreated ? new Date(t.dateCreated * 1000).toLocaleString() : ''}</td><td>${esc(t.description ?? t.type ?? '')}</td><td><code>${esc(t.status ?? '')}</code></td><td>${money(Number(t.amount || 0))}</td></tr>`).join('')}</table>`
+  } catch (e) {
+    box.innerHTML = `<p class="note">${esc(String(e))}</p>`
+  }
+}
+
+const PURPOSE_COLORS: Record<string, string> = { donacion: '#b89cff', tienda: '#7cf2e4', jardin: '#ff9be9', entrada: '#8fb4ff' }
+function revenueCharts(list: PaymentEvent[]) {
+  const days = 14
+  const day0 = new Date()
+  day0.setHours(0, 0, 0, 0)
+  const buckets = Array.from({ length: days }, (_, i) => ({ t: day0.getTime() - (days - 1 - i) * 864e5, v: 0, n: 0 }))
+  for (const p of list) {
+    const i = Math.floor((p.at - buckets[0].t) / 864e5)
+    if (i >= 0 && i < days) ((buckets[i].v += p.amount), buckets[i].n++)
+  }
+  const W = 640, H = 200, pad = 30
+  const max = Math.max(100, ...buckets.map((b) => b.v))
+  const x = (i: number) => pad + (i * (W - pad * 2)) / (days - 1)
+  const y = (v: number) => H - pad - (v / max) * (H - pad * 2)
+  const pts = buckets.map((b, i) => `${x(i).toFixed(1)},${y(b.v).toFixed(1)}`).join(' ')
+  const area = `${x(0)},${H - pad} ${pts} ${x(days - 1)},${H - pad}`
+  const grid = [0, 0.5, 1].map((f) => `<line x1="${pad}" x2="${W - pad}" y1="${y(max * f)}" y2="${y(max * f)}" class="g"/><text x="4" y="${y(max * f) + 3}">${Math.round(max * f)}</text>`).join('')
+  const labels = buckets.map((b, i) => (i % 2 ? '' : `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${new Date(b.t).getDate()}/${new Date(b.t).getMonth() + 1}</text>`)).join('')
+  const dots = buckets.map((b, i) => `<circle cx="${x(i)}" cy="${y(b.v)}" r="3"><title>${money(b.v)} · ${b.n}</title></circle>`).join('')
+  const by: Record<string, number> = {}
+  for (const p of list) by[p.purpose] = (by[p.purpose] ?? 0) + p.amount
+  const total = Object.values(by).reduce((a, b) => a + b, 0) || 1
+  let acc = 0
+  const R = 60, C = 2 * Math.PI * R
+  const arcs = Object.entries(by).map(([k, v]) => {
+    const len = (v / total) * C
+    const s = `<circle r="${R}" cx="80" cy="80" fill="none" stroke="${PURPOSE_COLORS[k] ?? '#fff'}" stroke-width="18" stroke-dasharray="${len} ${C - len}" stroke-dashoffset="${-acc}" transform="rotate(-90 80 80)"><title>${k}: ${money(v)}</title></circle>`
+    acc += len
+    return s
+  }).join('')
+  const legend = Object.entries(by).map(([k, v]) => `<div><i style="background:${PURPOSE_COLORS[k] ?? '#fff'}"></i>${k} <b>${money(v)}</b> <small>${Math.round((v / total) * 100)}%</small></div>`).join('')
+  const hours = Array.from({ length: 24 }, () => 0)
+  for (const p of list) hours[new Date(p.at).getHours()] += p.amount
+  const hm = Math.max(1, ...hours)
+  const bars = hours.map((v, i) => `<rect x="${i * 13 + 2}" y="${100 - (v / hm) * 90}" width="10" height="${(v / hm) * 90 + 1}" rx="2"><title>${i}:00 · ${money(v)}</title></rect>`).join('')
+  return `<div class="charts"><div class="sec glass chart"><h3 class="serif">${L('Ingresos · últimos 14 días', 'Revenue · last 14 days')}</h3><svg viewBox="0 0 ${W} ${H}" class="line"><defs><linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b89cff" stop-opacity=".55"/><stop offset="1" stop-color="#b89cff" stop-opacity="0"/></linearGradient></defs>${grid}<polygon points="${area}" fill="url(#rg)"/><polyline points="${pts}" fill="none" stroke="#c9b3ff" stroke-width="2"/>${dots}${labels}</svg></div>
+    <div class="sec glass chart"><h3 class="serif">${L('Por concepto', 'By purpose')}</h3><div class="donut"><svg viewBox="0 0 160 160">${arcs || `<circle r="${R}" cx="80" cy="80" fill="none" stroke="#2a2440" stroke-width="18"/>`}<text x="80" y="86" text-anchor="middle" class="big">${money(total === 1 && !list.length ? 0 : total)}</text></svg><div class="legend">${legend || `<small class="note">${L('Sin datos aún', 'No data yet')}</small>`}</div></div></div>
+    <div class="sec glass chart"><h3 class="serif">${L('Hora del día', 'Hour of day')}</h3><svg viewBox="0 0 314 112" class="bars">${bars}<text x="2" y="111">0h</text><text x="150" y="111">12h</text><text x="290" y="111">23h</text></svg></div></div>`
 }
 
 function payTable(n: number) {

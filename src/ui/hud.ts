@@ -258,7 +258,7 @@ export class Hud {
       qr.classList.remove('hidden')
       qr.innerHTML = `<p class="muted">${L('Generando cobro…', 'Creating charge…')}</p>`
       try {
-        const provider = getProvider()
+        const provider = await getProvider()
         const co = await provider.createCheckout(amt, concept, purpose, payer)
         qr.innerHTML = ''
         if (co.qrString) {
@@ -267,7 +267,7 @@ export class Hud {
           qr.append(cv)
         }
         if (co.url) qr.append(h('a', { class: 'btn sm', href: co.url, target: '_blank', rel: 'noopener' }, L('Abrir link de pago', 'Open payment link')))
-        qr.append(h('p', { class: 'muted' }, co.simulated ? L(`Modo demo (${provider.name}) · el pago real con pey se conectará después.`, `Demo mode (${provider.name}) · real pey payments will be connected later.`) : L('Escanea con la app de tu banco (CoDi). Esperando confirmación…', 'Scan with your bank app (CoDi). Waiting for confirmation…')))
+        qr.append(h('p', { class: 'muted' }, co.simulated ? L(`Modo demo (${provider.name}) · sin API key de pey configurada en el backend.`, `Demo mode (${provider.name}) · no pey API key configured on the backend.`) : L('Escanea con la app de tu banco (CoDi). Esperando confirmación…', 'Scan with your bank app (CoDi). Waiting for confirmation…')))
         if (co.simulate) {
           const b = h('button', { class: 'btn primary sm' }, L('Simular pago recibido ✦', 'Simulate payment received ✦'))
           b.onclick = () => co.simulate!()

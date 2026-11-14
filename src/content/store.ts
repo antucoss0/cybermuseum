@@ -15,7 +15,7 @@ function load(): Content {
       ...saved,
       rooms: Object.fromEntries(Object.entries(base.rooms).map(([k, r]) => [k, { ...r, ...((saved.rooms as any)?.[k] ?? {}) }])) as Content['rooms'],
       temp: { ...base.temp, ...(saved.temp ?? {}) },
-      settings: { ...base.settings, ...(saved.settings ?? {}) },
+      settings: { ...base.settings, ...(saved.settings ?? {}), adminHash: base.settings.adminHash },
     } as Content)
   } catch {
     return base

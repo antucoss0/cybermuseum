@@ -49,23 +49,24 @@ export class SimulatedProvider implements PaymentProvider {
 }
 
 /**
- * pey (CoDi) provider — placeholder for the hackathon integration.
- * The browser must never hold the pey API key: a small backend (see README)
- * calls POST https://api.pey.mx/codi/qr or /payment-link/create, receives the
- * `codi.qr.payment_received` / `payment_link.status_updated` webhooks
- * (Standard Webhooks signature) and relays them to clients.
+ * pey (CoDi) provider. The browser never holds the pey API key: the serverless
+ * backend in /api creates the CoDi QR (POST api.pey.mx/codi/qr) and the client
+ * polls /api/status until pey reports the QR as PAID.
  */
 export class PeyProvider implements PaymentProvider {
   readonly name = 'pey · CoDi'
   constructor(private backend: string) {}
+  private url(path: string) {
+    return this.backend.replace(/\/$/, '') + path
+  }
   async createCheckout(amount: number, concept: string, purpose: PaymentPurpose, payer: string): Promise<Checkout> {
-    const r = await fetch(this.backend.replace(/\/$/, '') + '/checkout', {
+    const r = await fetch(this.url('/checkout'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ amount, concept, purpose, payer }),
     })
-    if (!r.ok) throw new Error('No se pudo crear el cobro')
-    const data = (await r.json()) as { id: string; qrString?: string; url?: string }
+    const data = (await r.json().catch(() => ({}))) as { id: string; qrString?: string; url?: string; error?: string }
+    if (!r.ok || !data.id) throw new Error(data.error || 'pey checkout failed')
     return {
       id: data.id,
       amount,
@@ -75,22 +76,45 @@ export class PeyProvider implements PaymentProvider {
       simulated: false,
       wait: (signal) =>
         new Promise((resolve) => {
-          const off = payments.received.on((p) => {
-            if (p.concept.includes(data.id) || p.id === data.id) {
-              off()
-              resolve(p)
-            }
-          })
-          signal.addEventListener('abort', () => {
+          let timer = 0
+          const finish = (p: PaymentEvent | null) => {
+            clearTimeout(timer)
             off()
-            resolve(null)
-          })
+            resolve(p)
+          }
+          const off = payments.received.on((p) => p.id === 'pey_' + data.id && finish(p))
+          const poll = async () => {
+            if (signal.aborted) return
+            try {
+              const s = await (await fetch(this.url('/status?id=' + encodeURIComponent(data.id)), { cache: 'no-store' })).json()
+              if (s.paid) {
+                const ev = payments.make(Number(s.amount) || amount, concept, purpose, payer, 'pey')
+                ev.id = 'pey_' + data.id
+                return finish(ev)
+              }
+            } catch {}
+            timer = window.setTimeout(poll, 2500)
+          }
+          timer = window.setTimeout(poll, 2500)
+          signal.addEventListener('abort', () => finish(null))
         }),
     }
   }
 }
 
-export function getProvider(): PaymentProvider {
-  const backend = content.data.settings.peyBackend.trim()
+let detected: Promise<string> | null = null
+/** Finds a configured pey backend: settings.peyBackend, or the same-origin /api functions. */
+export function detectBackend(): Promise<string> {
+  const manual = content.data.settings.peyBackend.trim()
+  if (manual) return Promise.resolve(manual)
+  detected ??= fetch('./api/health', { cache: 'no-store' })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((j) => (j?.pey ? './api' : ''))
+    .catch(() => '')
+  return detected
+}
+
+export async function getProvider(): Promise<PaymentProvider> {
+  const backend = await detectBackend()
   return backend ? new PeyProvider(backend) : new SimulatedProvider()
 }

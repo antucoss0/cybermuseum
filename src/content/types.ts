@@ -86,6 +86,8 @@ export interface Submission {
   link: string
   message: string
   at: number
+  status?: 'pendiente' | 'aprobada' | 'rechazada'
+  note?: string
 }
 
 export interface TempExpo {
