@@ -267,3 +267,5 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 400; margin: 0; letter-spac
 .game-wrap .gamebar { position: absolute; left: 50%; top: calc(16px + var(--safe-t)); transform: translateX(-50%); padding: 8px 16px; border-radius: 14px; font-size: 12px; display: flex; gap: 16px; align-items: center; }
 .products .p.on { border-color: var(--lav); box-shadow: var(--neon); }
 .drawer .navlist button[disabled] { opacity: .45; cursor: not-allowed; }
+.icon-btn { background: rgba(20, 16, 36, .55); border: 1px solid rgba(201, 179, 255, .22); color: var(--text, #ece8ff); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+.icon-btn:hover { border-color: var(--lav); box-shadow: var(--neon); }

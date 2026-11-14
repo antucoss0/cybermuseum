@@ -12,9 +12,9 @@ export const M = {
   stoneLight: new THREE.MeshStandardMaterial({ color: '#2a2440', roughness: 0.45, metalness: 0.4 }),
   obsidian: new THREE.MeshStandardMaterial({ color: '#0b0a12', roughness: 0.18, metalness: 0.75 }),
   marble: new THREE.MeshStandardMaterial({ color: '#cfc9e6', roughness: 0.3, metalness: 0.1 }),
-  neon: new THREE.MeshBasicMaterial({ color: new THREE.Color('#c9b3ff').multiplyScalar(2.4), toneMapped: false }),
-  neonSoft: new THREE.MeshBasicMaterial({ color: new THREE.Color('#9b7bff').multiplyScalar(1.6), toneMapped: false }),
-  neonWhite: new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffffff').multiplyScalar(2.2), toneMapped: false }),
+  neon: new THREE.MeshBasicMaterial({ color: new THREE.Color('#c9b3ff').multiplyScalar(1.5), toneMapped: false }),
+  neonSoft: new THREE.MeshBasicMaterial({ color: new THREE.Color('#9b7bff').multiplyScalar(1.1), toneMapped: false }),
+  neonWhite: new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffffff').multiplyScalar(1.4), toneMapped: false }),
   glass: new THREE.MeshBasicMaterial({ color: '#8a7cff', transparent: true, opacity: 0.07, depthWrite: false, side: THREE.DoubleSide }),
   black: new THREE.MeshBasicMaterial({ color: '#000000' }),
 }
