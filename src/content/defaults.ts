@@ -12,7 +12,7 @@ const room = (id: RoomId, name: string, subtitle: string, description: string, o
 export const DEFAULT_ADMIN_HASH = 'a6a4f95a58a417041cdcd101febc11e8c71cae1e06f23c8c7c3a20522f066bac'
 
 export function defaultContent(): Content {
-  return {
+  return withEnglish({
     version: 1,
     rooms: {
       lobby: room('lobby', 'Lobby · La Bóveda', 'Cúpula reactiva', 'En el centro de la bóveda flota la Nube Gaussiana: cada pago CoDi la enciende, sobrecarga su tensión y cambia la luz del edificio.'),
@@ -59,7 +59,7 @@ export function defaultContent(): Content {
       { id: 't6', room: 'temporales', title: 'Ofrenda Binaria', author: 'Vera Ion', year: '2026', description: 'Una ofrenda para los archivos que ya no existen.', tags: ['Archivo', 'Ritual'], kind: 'generative', gen: 'glyph', seed: 106 },
     ],
     films: [
-      { id: 'f1', title: 'Nacimiento de una Nebulosa', author: 'Cybermuseo Studio', duration: 40, gen: 'nebula' },
+      { id: 'f1', title: 'Nacimiento de una Nebulosa', author: 'Cyber Museum Studio', duration: 40, gen: 'nebula' },
       { id: 'f2', title: 'Catedral Líquida', author: 'Antu Coss', duration: 40, gen: 'cathedral' },
       { id: 'f3', title: 'Pulso · Videoclip', author: 'Noa Kairos', duration: 35, gen: 'pulse' },
       { id: 'f4', title: 'Floración', author: 'Mara Lux', duration: 35, gen: 'bloom' },
@@ -99,5 +99,70 @@ export function defaultContent(): Content {
       adminHash: DEFAULT_ADMIN_HASH,
       peyBackend: '',
     },
+  })
+}
+
+const EN: Record<string, Record<string, unknown>> = {
+  lobby: { name: 'Lobby · The Vault', subtitle: 'Reactive dome', description: 'The Gaussian Cloud floats at the heart of the vault: every CoDi payment ignites it, overloads its tension and shifts the light of the building.' },
+  videosala: { name: 'Screening Room', subtitle: 'Virtual cinema', description: 'Continuous screenings of shorts, music videos and transmedia video art.' },
+  escultura: { name: '3D Sculpture Hall', subtitle: 'Living models', description: 'Animated real-time 3D sculptures on obsidian pedestals.' },
+  pintura: { name: '2D Painting Hall', subtitle: 'Still image', description: 'A traditional museum: 2D pieces and still images to contemplate slowly.' },
+  tienda: { name: 'Shop', subtitle: 'Merch of the universe', description: 'Stickers, apparel, prints and keepsakes. Every purchase makes the garden grow.' },
+  jardin: { name: 'Digital Garden', subtitle: 'Surreal exterior', description: 'Outside the building, a unique plant is born with every payment, floating in the middle of the galaxy.' },
+  temporales: { name: 'Temporary Exhibitions', subtitle: 'Open call', description: 'An international space for transmedia curators and artists: open calls, activities and contests.' },
+  videojuegos: { name: 'Videogames & Interactivity', subtitle: 'Hall of portals', description: 'A hall of doors to videogames and immersive rooms where you become co-author of the experience.' },
+  futuro: { name: 'Future Space', subtitle: 'Under construction', description: 'A wing the SuperAdmin can build and open with the procedural seed.' },
+  temp: { title: 'Ethereal Echoes of My Mind', statement: 'A visual exploration of memory, desire and identity in a digital universe.', callTitle: 'International Open Call 2026 · Transmedia works' },
+  p1: { title: 'Nebula of Memory', description: 'Fragments of what we were, echoes of what we will be.', tags: ['Digital art', 'Cosmos'] },
+  p2: { title: 'Obsidian Rose Window', description: 'Gothic geometry rewritten as an algorithm of light.', tags: ['Gothic', 'Geometry'] },
+  p3: { title: 'Lunar Glass Flower', description: 'A flower that only blooms when no one is looking.', tags: ['Botany', 'Glass'] },
+  p4: { title: 'Lavender Portal', description: 'An arch opening onto the space between two heartbeats.', tags: ['Portal', 'Neon'] },
+  p5: { title: 'Galactic Tide', description: 'Waves of an ocean that only exists in orbit.', tags: ['Liquid', 'Galaxy'] },
+  p6: { title: 'Ephemeral Eclipse', description: 'To be small and ephemeral before the universe is also to be one with it.', tags: ['Eclipse', 'Ephemeral'] },
+  p7: { title: 'Glyphs of the Choir', description: 'Scores of a choir of stars transcribed into symbols.', tags: ['Glyph', 'Sound'] },
+  p8: { title: 'Inner Cathedral', description: 'The architecture of a prayer never spoken.', tags: ['Architecture', 'Gothic'] },
+  s1: { title: 'Liquid Heart', description: 'A mass of liquid chrome that breathes with the pulse of the museum.', tags: ['3D', 'Real time'] },
+  s2: { title: 'Knot of Eternity', description: 'A path with no beginning or end, folded onto itself.', tags: ['3D', 'Topology'] },
+  s3: { title: 'Astral Lattice', description: 'A lattice of light that reshapes itself every minute.', tags: ['3D', 'Generative'] },
+  s4: { title: 'Bust of Memory', description: 'A classical face undone into particles, with an orbital halo.', tags: ['3D', 'Neoclassical'] },
+  s5: { title: 'Ribbon of Orbits', description: 'Trajectories of invisible moons, solidified into a ribbon.', tags: ['3D', 'Orbits'] },
+  s6: { title: 'Neon Angel', description: 'Winged guardian of the vault, stitched with filaments of light.', tags: ['3D', 'Gothic'] },
+  t1: { description: 'A visual exploration of memory, desire and identity in a digital universe.', tags: ['3D', 'AI', 'Digital art', 'Memory'] },
+  t2: { description: 'What we remember changes every time we remember it.', tags: ['Memory', 'Transmedia'] },
+  t3: { title: 'Dream Room', description: 'Images gathered on the border between sleep and waking.', tags: ['Dream', 'Still image'] },
+  t4: { title: 'Cosmos Room', description: 'The universe as a cathedral without walls.', tags: ['Cosmos', 'Architecture'] },
+  t5: { title: 'Resonance', description: 'Frequencies of memory turned into color.', tags: ['Sound', 'Color'] },
+  t6: { title: 'Binary Offering', description: 'An offering for the archives that no longer exist.', tags: ['Archive', 'Ritual'] },
+  f1: { title: 'Birth of a Nebula' },
+  f2: { title: 'Liquid Cathedral' },
+  f3: { title: 'Pulse · Music video' },
+  f4: { title: 'Blooming' },
+  pr1: { name: 'Constellation Sticker Pack', description: '6 holographic stickers of the halls.' },
+  pr2: { name: 'Star Sticker ✦', description: 'Vinyl sticker with the museum star.' },
+  pr3: { name: 'Vault T-shirt', description: 'Obsidian black cotton, neon lavender print.' },
+  pr4: { name: 'Galaxy Hoodie', description: 'Oversized hoodie with the embroidered Gaussian Cloud.' },
+  pr5: { name: 'Print "Ephemeral Eclipse"', description: 'Giclée 30×40 cm, cotton paper.' },
+  pr6: { name: 'Print "Glass Flower"', description: 'Giclée 30×40 cm, cotton paper.' },
+  pr7: { name: 'Obsidian Mug', description: 'Matte black ceramic with a lavender star.' },
+  pr8: { name: 'Cathedral Candle', description: 'Soy candle scented with incense and lavender.' },
+  g1: { title: 'Star Harvest', description: 'Floating platform: collect 12 stars before they fade.' },
+  g2: { title: 'Synesthesia', description: 'Immersive room: your steps paint light and compose music. You are co-author.' },
+  g3: { title: 'Open Call · Indie Game', description: 'An open door for the next selected videogame.' },
+  g4: { title: 'Experiential Narrative', description: 'Coming soon: a story you write by walking it.' },
+  e1: { description: 'Temporary exhibition curated by Antu Coss.' },
+  e2: { title: 'International Open Call 2026', description: 'Transmedia curators and artists: send your proposal from the temporary hall.' },
+  e3: { title: 'Launch · Galaxy Hoodie', description: 'Limited edition in the museum shop.' },
+  e4: { title: 'Surreal Garden Contest', description: 'The strangest plant in the garden wins a signed print.' },
+  e5: { title: 'Curated works · Sculpture Hall', description: 'A new selection of real-time animated sculptures.' },
+}
+
+/** Attach the default English translations to content items that have none. */
+export function withEnglish(c: Content): Content {
+  const fill = (o: { id?: string; en?: Record<string, unknown> }, id = o.id) => {
+    if (id && EN[id] && !o.en) o.en = { ...EN[id] }
   }
+  Object.values(c.rooms).forEach((r) => fill(r))
+  fill(c.temp, 'temp')
+  ;[...c.artworks, ...c.films, ...c.products, ...c.games, ...c.events].forEach((o) => fill(o))
+  return c
 }

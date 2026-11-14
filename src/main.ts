@@ -6,6 +6,7 @@ import './style.css'
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { Engine } from './core/engine'
+import { L } from './core/i18n'
 import { detectQuality, isTouch } from './core/util'
 import { content } from './content/store'
 import type { GameDoor, RoomId } from './content/types'
@@ -55,7 +56,7 @@ const hooks: Hooks = {
   openGame: (g) => hud?.openGame(g, startGame),
   openCall: () => hud?.openCall(),
   openEvents: () => hud?.openEvents(),
-  donate: () => hud?.openPay(100, controller?.room === 'jardin' ? 'Una flor para el jardín' : 'Ofrenda a la nube', controller?.room === 'jardin' ? 'jardin' : 'donacion'),
+  donate: () => hud?.openPay(100, controller?.room === 'jardin' ? L('Una flor para el jardín', 'A flower for the garden') : L('Ofrenda a la nube', 'Offering to the cloud'), controller?.room === 'jardin' ? 'jardin' : 'donacion'),
   nextFilm: () => {},
 }
 
@@ -124,11 +125,11 @@ function peerAvatar(id: string, kind: string, name: string) {
 }
 multi.profile.on(({ id, profile }) => {
   peerAvatar(id, profile.kind, profile.name)
-  hud?.chat('', `${profile.name} entró al museo`, true)
+  hud?.chat('', `${profile.name} ${L('entró al museo', 'entered the museum')}`, true)
 })
 multi.pose.on(({ id, pose }) => {
   const info = multi.peers.get(id)?.profile
-  const p = peers.get(id) ?? peerAvatar(id, info?.kind ?? 'oraculo', info?.name ?? 'Visitante')
+  const p = peers.get(id) ?? peerAvatar(id, info?.kind ?? 'oraculo', info?.name ?? L('Visitante', 'Visitor'))
   p.target.set(pose.x, pose.y, pose.z)
   p.yaw = pose.yaw
   p.speed = pose.speed
@@ -236,8 +237,8 @@ async function enterMuseum(profile: { kind: AvatarKind; name: string }) {
   place(start)
   controller.enabled = true
   hud.setRoom(controller.room)
-  hud.toast('Bienvenido', profile.name)
-  hud.chat('', isTouch() ? 'Usa el joystick para caminar y arrastra para mirar.' : 'Bienvenido a Cybermuseo. Presiona Enter para chatear.', true)
+  hud.toast(L('Bienvenido', 'Welcome'), profile.name)
+  hud.chat('', isTouch() ? L('Usa el joystick para caminar y arrastra para mirar.', 'Use the joystick to walk and drag to look around.') : L('Bienvenido a Cyber Museum. Presiona Enter para chatear.', 'Welcome to Cyber Museum. Press Enter to chat.'), true)
   if (content.data.settings.multiplayer && !params.has('solo')) {
     multi.start(content.data.settings.roomName, { name: profile.name, kind: profile.kind })
     hud.setOnline(1, multi.connected)
@@ -258,7 +259,7 @@ addEventListener('hashchange', handleHash)
 async function boot() {
   if (params.has('skip')) {
     const saved = JSON.parse(localStorage.getItem('cm.profile') || '{}')
-    await enterMuseum({ kind: (params.get('avatar') as AvatarKind) || saved.kind || 'oraculo', name: params.get('name') || saved.name || 'Visitante' })
+    await enterMuseum({ kind: (params.get('avatar') as AvatarKind) || saved.kind || 'oraculo', name: params.get('name') || saved.name || L('Visitante', 'Visitor') })
     handleHash()
     return
   }
@@ -287,7 +288,7 @@ Object.assign(window, {
       return { mode, room: controller?.room, x: controller?.x, z: controller?.z, y: controller?.y, energy, fps: engine.fps, peers: peers.size, me }
     },
     place,
-    pay: (amount = 100, payer = 'Test') => payments.ingest(payments.make(amount, 'Donación simulada', 'donacion', payer, 'sim')),
+    pay: (amount = 100, payer = 'Test') => payments.ingest(payments.make(amount, L('Donación simulada', 'Simulated donation'), 'donacion', payer, 'sim')),
     look: (yaw: number, pitch = 0.28) => controller && ((controller.camYaw = yaw), (controller.camPitch = pitch), controller.snapCamera()),
     walk: (code: string, ms = 1000) => {
       controller?.keys.add(code)

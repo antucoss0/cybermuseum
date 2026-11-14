@@ -1,11 +1,12 @@
+import { L } from '../core/i18n'
 import * as THREE from 'three'
 
 export type AvatarKind = 'oraculo' | 'centinela' | 'astral'
 
 export const AVATARS: { id: AvatarKind; name: string; role: string; desc: string; color: string }[] = [
-  { id: 'oraculo', name: 'Oráculo', role: 'Curadora de memorias', desc: 'Túnica de obsidiana y halo lavanda. Lee las obras como profecías.', color: '#c9b3ff' },
-  { id: 'centinela', name: 'Centinela', role: 'Guardián de la bóveda', desc: 'Armadura greco-futurista con visor de neón. Protege el archivo eterno.', color: '#8fb4ff' },
-  { id: 'astral', name: 'Astral', role: 'Espíritu viajero', desc: 'Un ser de polvo estelar que flota entre las salas y las galaxias.', color: '#ff9be9' },
+  { id: 'oraculo', name: L('Oráculo', 'Oracle'), role: L('Curadora de memorias', 'Curator of memories'), desc: L('Túnica de obsidiana y halo lavanda. Lee las obras como profecías.', 'Obsidian robe and lavender halo. Reads artworks like prophecies.'), color: '#c9b3ff' },
+  { id: 'centinela', name: L('Centinela', 'Sentinel'), role: L('Guardián de la bóveda', 'Guardian of the vault'), desc: L('Armadura greco-futurista con visor de neón. Protege el archivo eterno.', 'Greco-futurist armor with a neon visor. Protects the eternal archive.'), color: '#8fb4ff' },
+  { id: 'astral', name: 'Astral', role: L('Espíritu viajero', 'Wandering spirit'), desc: L('Un ser de polvo estelar que flota entre las salas y las galaxias.', 'A being of stardust drifting between halls and galaxies.'), color: '#ff9be9' },
 ]
 
 export interface Avatar {

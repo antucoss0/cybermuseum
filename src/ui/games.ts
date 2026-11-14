@@ -1,3 +1,4 @@
+import { L } from '../core/i18n'
 import { h } from '../core/util'
 
 /** Full-screen 2D minigames reached through the portals in the videogame hall. */
@@ -126,8 +127,8 @@ export function playGame(ui: HTMLElement, kind: string, onExit: (score: number) 
       g.shadowBlur = 0
       const done = score >= 12 || time <= 0
       bar.innerHTML = done
-        ? `<b>${score >= 12 ? 'Cosecha completa ✦' : 'Se apagaron las estrellas'}</b><span>${score} / 12</span><button class="btn sm" data-r>Salir</button>`
-        : `<span>Estrellas <b>${score}</b> / 12</span><span>Tiempo <b>${Math.ceil(time)}</b>s</span>`
+        ? `<b>${score >= 12 ? L('Cosecha completa ✦', 'Harvest complete ✦') : L('Se apagaron las estrellas', 'The stars faded out')}</b><span>${score} / 12</span><button class="btn sm" data-r>${L('Salir', 'Exit')}</button>`
+        : `<span>${L('Estrellas', 'Stars')} <b>${score}</b> / 12</span><span>${L('Tiempo', 'Time')} <b>${Math.ceil(time)}</b>s</span>`
       bar.querySelector('[data-r]')?.addEventListener('click', end)
       if (done && time > 0) time = 0
       raf = requestAnimationFrame(loop)
@@ -172,7 +173,7 @@ export function playGame(ui: HTMLElement, kind: string, onExit: (score: number) 
         g.stroke()
       }
       g.globalCompositeOperation = 'source-over'
-      bar.innerHTML = `<span>Mueve o arrastra para pintar con sonido</span><span>Notas <b>${score}</b></span>`
+      bar.innerHTML = `<span>${L('Mueve o arrastra para pintar con sonido', 'Move or drag to paint with sound')}</span><span>${L('Notas', 'Notes')} <b>${score}</b></span>`
       raf = requestAnimationFrame(loop)
     }
     raf = requestAnimationFrame(loop)

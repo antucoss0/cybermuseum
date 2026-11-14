@@ -1,5 +1,5 @@
 import { Emitter } from '../core/util'
-import { defaultContent } from './defaults'
+import { defaultContent, withEnglish } from './defaults'
 import type { Content } from './types'
 
 const KEY = 'cm.content.v1'
@@ -10,13 +10,13 @@ function load(): Content {
     const raw = localStorage.getItem(KEY)
     if (!raw) return base
     const saved = JSON.parse(raw) as Partial<Content>
-    return {
+    return withEnglish({
       ...base,
       ...saved,
-      rooms: { ...base.rooms, ...(saved.rooms ?? {}) },
+      rooms: Object.fromEntries(Object.entries(base.rooms).map(([k, r]) => [k, { ...r, ...((saved.rooms as any)?.[k] ?? {}) }])) as Content['rooms'],
       temp: { ...base.temp, ...(saved.temp ?? {}) },
       settings: { ...base.settings, ...(saved.settings ?? {}) },
-    }
+    } as Content)
   } catch {
     return base
   }

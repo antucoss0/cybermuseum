@@ -52,7 +52,7 @@ export class Multi {
       })
       this.sendPose = (p) => void pose.send(p).catch(() => {})
       const chat = room.makeAction<string>('chat')
-      chat.onMessage((t, ctx) => this.chat.emit({ id: ctx.userId, name: this.peers.get(ctx.userId)?.profile?.name ?? 'Visitante', text: String(t).slice(0, 140) }))
+      chat.onMessage((t, ctx) => this.chat.emit({ id: ctx.userId, name: this.peers.get(ctx.userId)?.profile?.name ?? (document.documentElement.lang === 'en' ? 'Visitor' : 'Visitante'), text: String(t).slice(0, 140) }))
       this.sendChat = (t) => void chat.send(t).catch(() => {})
       const pay = room.makeAction<PaymentEvent>('payment')
       pay.onMessage((p) => this.payment.emit({ ...p, source: 'peer' }))

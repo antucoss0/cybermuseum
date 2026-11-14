@@ -1,3 +1,4 @@
+import { L, tx } from '../core/i18n'
 import * as THREE from 'three'
 import type { Content, RoomId } from '../content/types'
 import { paint } from '../core/gen2d'
@@ -180,7 +181,7 @@ export function makeWing(root: THREE.Group, nav: Nav, def: (typeof WING_DEFS)[nu
     )
     veil.position.set(0, 3.75, 0.5)
     shell.add(veil)
-    const l = label('Próximamente', 'en construcción', 4.4)
+    const l = label(L('Próximamente', 'Coming soon'), L('en construcción', 'under construction'), 4.4)
     l.position.set(0, 3.5, 0.62)
     shell.add(l)
   }
@@ -219,8 +220,8 @@ export function buildLobby(root: THREE.Group, nav: Nav, content: Content) {
       rw.position.set(0, 8.6, 0)
       panel.add(rw)
       const isFuture = def.room === 'futuro'
-      const name = isFuture ? content.settings.futureName : info.name
-      const sign = label(name, isFuture && !content.settings.futureOpen ? 'próximamente' : info.subtitle, 5.2)
+      const name = isFuture ? content.settings.futureName : tx(info, 'name')
+      const sign = label(name, isFuture && !content.settings.futureOpen ? L('próximamente', 'coming soon') : tx(info, 'subtitle'), 5.2)
       sign.position.set(0, 8.05, 0.6)
       sign.scale.setScalar(0.85)
       panel.add(sign)
@@ -310,7 +311,7 @@ export function buildLobby(root: THREE.Group, nav: Nav, content: Content) {
     root.add(ch)
     chandeliers.push(ch)
   }
-  const title = label('Cybermuseo', 'art · technology · eternity', 9)
+  const title = label('Cyber Museum', 'art · technology · eternity', 9)
   title.position.set(0, 12.2, 0)
   title.userData.billboard = true
   root.add(title)

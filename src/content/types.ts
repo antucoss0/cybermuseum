@@ -10,6 +10,7 @@ export type RoomId =
   | 'futuro'
 
 export interface RoomInfo {
+  en?: Record<string, any>
   id: RoomId
   name: string
   subtitle: string
@@ -20,6 +21,7 @@ export interface RoomInfo {
 export type MediaKind = 'generative' | 'image' | 'video' | 'model'
 
 export interface Artwork {
+  en?: Record<string, any>
   id: string
   room: RoomId
   title: string
@@ -35,6 +37,7 @@ export interface Artwork {
 
 export type ProductCategory = 'stickers' | 'ropa' | 'prints' | 'objetos'
 export interface Product {
+  en?: Record<string, any>
   id: string
   name: string
   category: ProductCategory
@@ -46,6 +49,7 @@ export interface Product {
 }
 
 export interface Film {
+  en?: Record<string, any>
   id: string
   title: string
   author: string
@@ -55,6 +59,7 @@ export interface Film {
 }
 
 export interface GameDoor {
+  en?: Record<string, any>
   id: string
   title: string
   description: string
@@ -65,6 +70,7 @@ export interface GameDoor {
 
 export type EventKind = 'exposicion' | 'lanzamiento' | 'curaduria' | 'convocatoria' | 'concurso'
 export interface EventItem {
+  en?: Record<string, any>
   id: string
   title: string
   date: string
@@ -83,6 +89,7 @@ export interface Submission {
 }
 
 export interface TempExpo {
+  en?: Record<string, any>
   title: string
   curator: string
   statement: string

@@ -34,7 +34,7 @@ export class SimulatedProvider implements PaymentProvider {
       amount,
       concept,
       simulated: true,
-      qrString: JSON.stringify({ TYP: 'CYBERMUSEO-DEMO', amount, concept, ref: id }),
+      qrString: JSON.stringify({ TYP: 'CYBERMUSEUM-DEMO', amount, concept, ref: id }),
       wait: (signal) => {
         signal.addEventListener('abort', () => resolve(null))
         return done

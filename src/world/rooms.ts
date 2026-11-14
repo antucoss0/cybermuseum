@@ -1,3 +1,4 @@
+import { L, tx } from '../core/i18n'
 import * as THREE from 'three'
 import type { Artwork, Content, GameDoor, Product, RoomId } from '../content/types'
 import { mulberry32 } from '../core/util'
@@ -46,7 +47,7 @@ function gallery(w: Wing, c: Content, add: (i: Interactable) => void, hooks: Hoo
     const st = paintingStele(a)
     local(w, st, lx, lz, 0, side * -Math.PI / 2)
     w.obstacle(lx, lz, 1.0)
-    add({ id: a.id, pos: w.world(lx - side * 1.6, lz), r: 2.2, label: `Ver · ${a.title}`, room: w.room, action: () => hooks.openArt(a) })
+    add({ id: a.id, pos: w.world(lx - side * 1.6, lz), r: 2.2, label: `${L('Ver', 'View')} · ${tx(a, 'title')}`, room: w.room, action: () => hooks.openArt(a) })
   })
   void c
 }
@@ -57,16 +58,16 @@ const builders: Partial<Record<RoomId, Builder>> = {
     gallery(w, c, add, hooks, c.artworks.filter((a) => a.room === 'pintura'))
     const ch = chandelier(1.6, 12)
     local(w, ch, 0, z0 - w.L / 2, 8)
-    const t = label(c.rooms.pintura.name, c.rooms.pintura.subtitle, 6)
+    const t = label(tx(c.rooms.pintura, 'name'), tx(c.rooms.pintura, 'subtitle'), 6)
     local(w, t, 0, z0 - w.L + 0.6, 8.6)
     return { tick: () => {} }
   },
   temporales(w, c, add, hooks) {
     roomLight(w, '#c7a6ff')
     gallery(w, c, add, hooks, c.artworks.filter((a) => a.room === 'temporales'), 4)
-    const t = label(c.temp.title, `curaduría · ${c.temp.curator}`, 7)
+    const t = label(tx(c.temp, 'title'), `${L('curaduría', 'curated by')} · ${c.temp.curator}`, 7)
     local(w, t, 0, z0 - 1.2, 8.3, Math.PI)
-    const t2 = label(c.temp.title, `curaduría · ${c.temp.curator}`, 7)
+    const t2 = label(tx(c.temp, 'title'), `${L('curaduría', 'curated by')} · ${c.temp.curator}`, 7)
     local(w, t2, 0, z0 - w.L + 0.6, 8.6)
     // call-for-artists kiosk
     const k = new THREE.Group()
@@ -76,12 +77,12 @@ const builders: Partial<Record<RoomId, Builder>> = {
     screen.position.set(0, 1.25, 0)
     screen.rotation.x = -0.5
     k.add(slab, screen)
-    const kl = label(c.temp.callOpen ? 'Convocatoria' : 'Eventos', c.temp.callOpen ? c.temp.callTitle : 'agenda del museo', 3)
+    const kl = label(c.temp.callOpen ? L('Convocatoria', 'Open call') : L('Eventos', 'Events'), c.temp.callOpen ? tx(c.temp, 'callTitle') : L('agenda del museo', 'museum calendar'), 3)
     kl.position.y = 2.1
     k.add(kl)
     local(w, k, 0, z0 - w.L + 3.5, 0, 0)
     w.obstacle(0, z0 - w.L + 3.5, 1)
-    add({ id: 'call', pos: w.world(0, z0 - w.L + 5.4), r: 2, label: c.temp.callOpen ? 'Postular a la convocatoria' : 'Ver eventos', room: w.room, action: () => (c.temp.callOpen ? hooks.openCall() : hooks.openEvents()) })
+    add({ id: 'call', pos: w.world(0, z0 - w.L + 5.4), r: 2, label: c.temp.callOpen ? L('Postular a la convocatoria', 'Apply to the open call') : L('Ver eventos', 'See events'), room: w.room, action: () => (c.temp.callOpen ? hooks.openCall() : hooks.openEvents()) })
     return { tick: () => {} }
   },
   escultura(w, c, add, hooks) {
@@ -98,11 +99,11 @@ const builders: Partial<Record<RoomId, Builder>> = {
       local(w, s.group, lx, lz)
       ticks.push(s.tick)
       w.obstacle(lx, lz, 1.2)
-      add({ id: a.id, pos: w.world(lx, lz + 1.9), r: 1.8, label: `Ver · ${a.title}`, room: w.room, action: () => hooks.openArt(a) })
+      add({ id: a.id, pos: w.world(lx, lz + 1.9), r: 1.8, label: `${L('Ver', 'View')} · ${tx(a, 'title')}`, room: w.room, action: () => hooks.openArt(a) })
       const spot = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 1.2, 6, 16, 1, true), new THREE.MeshBasicMaterial({ color: '#b89cff', transparent: true, opacity: 0.05, depthWrite: false, side: THREE.DoubleSide }))
       local(w, spot, lx, lz, 5)
     })
-    const t = label(c.rooms.escultura.name, c.rooms.escultura.subtitle, 6)
+    const t = label(tx(c.rooms.escultura, 'name'), tx(c.rooms.escultura, 'subtitle'), 6)
     local(w, t, 0, z0 - w.L + 0.6, 8.6)
     return {
       tick: (_dt, tm, here) => {
@@ -176,7 +177,7 @@ const builders: Partial<Record<RoomId, Builder>> = {
     }
     setFilm(0)
     hooks.nextFilm = () => setFilm(film + 1)
-    add({ id: 'film', pos: w.world(0, z0 - 3), r: 2.5, label: 'Cambiar proyección', room: w.room, action: () => hooks.nextFilm() })
+    add({ id: 'film', pos: w.world(0, z0 - 3), r: 2.5, label: L('Cambiar proyección', 'Change screening'), room: w.room, action: () => hooks.nextFilm() })
     let acc = 0
     return {
       tick: (dt, t, here) => {
@@ -185,7 +186,7 @@ const builders: Partial<Record<RoomId, Builder>> = {
         acc += dt
         if (acc < 1 / 24) return
         acc = 0
-        drawFilm(g, c.films[film]?.gen ?? 'nebula', t, c.films[film]?.title ?? '')
+        drawFilm(g, c.films[film]?.gen ?? 'nebula', t, (c.films[film] ? tx(c.films[film], 'title') : ''))
         tex.needsUpdate = true
       },
     }
@@ -212,7 +213,7 @@ const builders: Partial<Record<RoomId, Builder>> = {
       g.add(ped, glass, img, led)
       local(w, g, lx, lz)
       w.obstacle(lx, lz, 1.05)
-      add({ id: p.id, pos: w.world(lx - side * 1.6, lz), r: 1.7, label: `${p.name} · $${p.price}`, room: w.room, action: () => hooks.openShop(p) })
+      add({ id: p.id, pos: w.world(lx - side * 1.6, lz), r: 1.7, label: `${tx(p, 'name')} · $${p.price}`, room: w.room, action: () => hooks.openShop(p) })
     })
     const counter = new THREE.Mesh(new THREE.BoxGeometry(5, 1.1, 1.2), M.obsidian)
     local(w, counter, 0, z0 - w.L + 2.5, 0.55)
@@ -221,8 +222,8 @@ const builders: Partial<Record<RoomId, Builder>> = {
     w.obstacle(-1.6, z0 - w.L + 2.5, 1)
     w.obstacle(0, z0 - w.L + 2.5, 1)
     w.obstacle(1.6, z0 - w.L + 2.5, 1)
-    add({ id: 'shop', pos: w.world(0, z0 - w.L + 4.4), r: 2.2, label: 'Abrir tienda', room: w.room, action: () => hooks.openShop() })
-    const t = label(c.rooms.tienda.name, c.rooms.tienda.subtitle, 6)
+    add({ id: 'shop', pos: w.world(0, z0 - w.L + 4.4), r: 2.2, label: L('Abrir tienda', 'Open shop'), room: w.room, action: () => hooks.openShop() })
+    const t = label(tx(c.rooms.tienda, 'name'), tx(c.rooms.tienda, 'subtitle'), 6)
     local(w, t, 0, z0 - w.L + 0.6, 8.6)
     const spinners: THREE.Object3D[] = []
     w.group.traverse((o) => o.userData.spin && spinners.push(o))
@@ -250,11 +251,11 @@ const builders: Partial<Record<RoomId, Builder>> = {
       )
       portal.position.y = 2.15
       portal.userData.portal = d.open
-      const l = label(d.title, d.open ? 'entrar' : 'próximamente', 3.2)
+      const l = label(tx(d, 'title'), d.open ? L('entrar', 'enter') : L('próximamente', 'coming soon'), 3.2)
       l.position.y = 5.2
       g.add(arch, portal, l)
       local(w, g, lx, lz, 0, side * -Math.PI / 2)
-      if (d.open || d.kind === 'url') add({ id: d.id, pos: w.world(lx - side * 1.6, lz), r: 1.8, label: d.open ? `Entrar · ${d.title}` : `${d.title} · próximamente`, room: w.room, action: () => hooks.openGame(d) })
+      if (d.open || d.kind === 'url') add({ id: d.id, pos: w.world(lx - side * 1.6, lz), r: 1.8, label: d.open ? `${L('Entrar', 'Enter')} · ${tx(d, 'title')}` : `${d.title} · próximamente`, room: w.room, action: () => hooks.openGame(d) })
     })
     for (let i = 0; i < 5; i++) {
       const lz = z0 - 2 - i * ((w.L - 4) / 4)
@@ -264,7 +265,7 @@ const builders: Partial<Record<RoomId, Builder>> = {
         w.obstacle(s * (w.W / 2 - 1.4), lz, 0.45)
       }
     }
-    const t = label(c.rooms.videojuegos.name, c.rooms.videojuegos.subtitle, 6)
+    const t = label(tx(c.rooms.videojuegos, 'name'), tx(c.rooms.videojuegos, 'subtitle'), 6)
     local(w, t, 0, z0 - w.L + 0.6, 8.6)
     const portals: THREE.Mesh[] = []
     w.group.traverse((o) => o.userData.portal && portals.push(o as THREE.Mesh))
@@ -313,9 +314,9 @@ const builders: Partial<Record<RoomId, Builder>> = {
       }
       w.group.add(im)
     }
-    const t = label(c.settings.futureName, `semilla ${c.settings.seed}`, 6)
+    const t = label(c.settings.futureName, `${L('semilla', 'seed')} ${c.settings.seed}`, 6)
     local(w, t, 0, z0 - w.L + 0.6, 8.6)
-    add({ id: 'future', pos: w.world(0, z0 - w.L / 2 + 4), r: 2.4, label: `${c.settings.futureName} · ver eventos`, room: w.room, action: () => hooks.openEvents() })
+    add({ id: 'future', pos: w.world(0, z0 - w.L / 2 + 4), r: 2.4, label: `${c.settings.futureName} · ${L('ver eventos', 'see events')}`, room: w.room, action: () => hooks.openEvents() })
     return { tick: (_dt, tm) => spin.forEach((o, i) => ((o.rotation.y = tm * 0.2 * (i % 2 ? 1 : -1)), (o.position.y += Math.sin(tm + i) * 0.002))) }
   },
   jardin(w, c, add, hooks) {
@@ -348,7 +349,7 @@ const builders: Partial<Record<RoomId, Builder>> = {
     poolRing.rotation.x = Math.PI / 2
     local(w, poolRing, 0, cz, 0.08)
     w.obstacle(0, cz, 4.7)
-    add({ id: 'garden', pos: w.world(0, cz + 6), r: 2.4, label: 'Plantar una flor (apoyar al jardín)', room: w.room, action: () => hooks.donate() })
+    add({ id: 'garden', pos: w.world(0, cz + 6), r: 2.4, label: L('Plantar una flor (apoyar al jardín)', 'Plant a flower (support the garden)'), room: w.room, action: () => hooks.donate() })
     // crystal trees
     const rng = mulberry32(99)
     const trunkMat = new THREE.MeshStandardMaterial({ color: '#3b2f66', metalness: 0.6, roughness: 0.3 })
@@ -395,7 +396,7 @@ const builders: Partial<Record<RoomId, Builder>> = {
     }
     const portal = archOutline(6, 9, 0.12)
     local(w, portal, 0, -30.2, 0, Math.PI)
-    const sign = label('Jardín Digital', 'cada pago hace crecer una flor', 6)
+    const sign = label(L('Jardín Digital', 'Digital Garden'), L('cada pago hace crecer una flor', 'every payment grows a flower'), 6)
     local(w, sign, 0, -31.6, 10, Math.PI)
     const gl = new THREE.PointLight('#a98bff', 40, 0, 1.4)
     local(w, gl, 0, cz, 6)
