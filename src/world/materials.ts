@@ -46,25 +46,25 @@ export function floorMaterial(tile = 2, glowFrom = new THREE.Vector2(0, 0)) {
         float chk = mod(c.x + c.y, 2.0);
         vec2 f = fract(p);
         float vein = smoothstep(0.62, 0.0, abs(vnoise(vW.xz*0.9)*2.0-1.0 + vnoise(vW.xz*3.1)*0.3 - 0.15));
-        vec3 white = vec3(0.62,0.6,0.7) - vein*0.12;
+        vec3 white = vec3(0.30,0.29,0.36) - vein*0.08;
         vec3 black = vec3(0.012,0.01,0.02) + vein*0.03;
         vec3 col = mix(black, white, chk);
         float grout = 1.0 - smoothstep(0.0, 0.025, min(min(f.x,1.0-f.x), min(f.y,1.0-f.y)));
         col = mix(col, vec3(0.05,0.04,0.09), grout*0.8);
         float d = length(vW.xz - uCenter);
         // fake reflection of the lights above
-        float refl = exp(-d*0.09) * (0.35 + uEnergy*1.2);
-        col += uLav * refl * mix(0.9, 0.25, chk);
+        float refl = exp(-d*0.12) * (0.12 + uEnergy*0.3);
+        col += uLav * refl * mix(0.6, 0.15, chk);
         // concentric pattern waves
         float wave = sin(d*1.4 - uTime*1.6) * 0.5 + 0.5;
-        col += uLav * pow(wave, 12.0) * (0.05 + uEnergy*0.6) * exp(-d*0.04) * (1.0-chk*0.5);
+        col += uLav * pow(wave, 12.0) * (0.04 + uEnergy*0.22) * exp(-d*0.04) * (1.0-chk*0.5);
         for (int i=0;i<4;i++){
           vec4 r = uRipples[i];
           float age = uTime - r.z;
           if (age < 0.0 || age > 6.0) continue;
           float rd = length(vW.xz - r.xy);
           float ring = exp(-pow((rd - age*9.0)*0.8, 2.0));
-          col += mix(uLav, vec3(1.0), 0.3) * ring * (1.0 - age/6.0) * 1.6 * r.w;
+          col += uLav * ring * (1.0 - age/6.0) * 0.45 * r.w;
         }
         gl_FragColor = vec4(col, 1.0);
         #include <tonemapping_fragment>

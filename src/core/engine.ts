@@ -24,14 +24,14 @@ export class Engine {
     const dpr = Math.min(window.devicePixelRatio || 1, quality === 'high' ? 1.75 : quality === 'mid' ? 1.3 : 1)
     this.renderer.setPixelRatio(dpr)
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping
-    this.renderer.toneMappingExposure = 1.05
+    this.renderer.toneMappingExposure = 0.92
     this.renderer.outputColorSpace = THREE.SRGBColorSpace
     this.camera = new THREE.PerspectiveCamera(62, 1, 0.1, 2500)
     this.scene.background = new THREE.Color('#05040a')
     this.composer = new EffectComposer(this.renderer)
     this.composer.addPass(new RenderPass(this.scene, this.camera))
     const res = new THREE.Vector2(256, 256)
-    this.bloom = new UnrealBloomPass(res, quality === 'low' ? 0.85 : 1.05, 0.55, 0.62)
+    this.bloom = new UnrealBloomPass(res, quality === 'low' ? 0.6 : 0.75, 0.5, 0.88)
     this.composer.addPass(this.bloom)
     this.composer.addPass(new OutputPass())
     this.resize()

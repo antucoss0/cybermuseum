@@ -10,7 +10,7 @@ export class Controller {
   y = 0
   yaw = 0
   camYaw = 0
-  camPitch = 0.28
+  camPitch = 0.16
   camDist = 6
   speed = 0
   room: RoomId = 'lobby'
@@ -122,7 +122,7 @@ export class Controller {
     const tz = this.z - fz * d * cp
     const ty = this.y + 1.7 + Math.sin(this.camPitch) * d
     this.camPos.lerp(new THREE.Vector3(tx, ty, tz), lerp)
-    this.look.lerp(new THREE.Vector3(this.x, this.y + 1.45, this.z), lerp)
+    this.look.lerp(new THREE.Vector3(this.x, this.y + 1.9, this.z), lerp)
     this.camera.position.copy(this.camPos)
     this.camera.lookAt(this.look)
   }

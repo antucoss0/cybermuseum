@@ -36,7 +36,7 @@ scene.environmentIntensity = 0.35
 const sky = createSky()
 sky.setPalette(content.data.settings.palette)
 scene.add(sky.mesh)
-scene.add(new THREE.HemisphereLight('#8b7bd6', '#0a0812', 0.55))
+scene.add(new THREE.HemisphereLight('#8b7bd6', '#0a0812', 0.3))
 const cloudLight = new THREE.PointLight('#b89cff', 140, 0, 1.5)
 cloudLight.position.set(0, 8, 0)
 scene.add(cloudLight)
@@ -171,8 +171,8 @@ engine.onTick((dt, t) => {
   sky.uniforms.uEnergy.value = Math.min(1, energy)
   shared.lavender.value.copy(baseLav).lerp(hot, Math.min(1, energy * 0.8))
   cloudLight.color.copy(shared.lavender.value)
-  cloudLight.intensity = 140 + energy * 420
-  engine.bloom.strength = (quality === 'low' ? 0.8 : 1.0) + Math.min(1, energy) * 0.7
+  cloudLight.intensity = 60 + Math.min(1, energy) * 110
+  engine.bloom.strength = (quality === 'low' ? 0.6 : 0.75) + Math.min(1, energy) * 0.3
   cloud.update(dt)
   cloud.points.rotation.y = t * 0.03
   world.chandeliers.forEach((c, i) => (c.rotation.y = t * 0.05 * (i % 2 ? 1 : -1)))
