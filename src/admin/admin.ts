@@ -1,3 +1,4 @@
+import { L } from '../core/i18n'
 import type { Content, RoomId } from '../content/types'
 import { content } from '../content/store'
 import { GEN_2D, paintClone } from '../core/gen2d'
@@ -13,7 +14,7 @@ const GEN_3D = ['liquid', 'knot', 'lattice', 'bust', 'ribbon', 'angel']
 
 const LISTS: Record<ListKey, { title: string; fields: Field[]; blank: () => any }> = {
   artworks: {
-    title: 'Obras',
+    title: L('Obras', 'Artworks'),
     fields: [
       { k: 'title', label: 'Título' },
       { k: 'author', label: 'Artista' },
@@ -25,11 +26,14 @@ const LISTS: Record<ListKey, { title: string; fields: Field[]; blank: () => any 
       { k: 'media', label: 'Archivo (imagen / video / .glb)', type: 'media' },
       { k: 'tags', label: 'Etiquetas (coma)', type: 'tags' },
       { k: 'description', label: 'Descripción', type: 'textarea' },
+      { k: 'en.title', label: 'Title (EN)' },
+      { k: 'en.tags', label: 'Tags (EN, comma)', type: 'tags' },
+      { k: 'en.description', label: 'Description (EN)', type: 'textarea' },
     ],
     blank: () => ({ id: uid('a'), room: 'pintura', title: 'Nueva obra', author: '', year: String(new Date().getFullYear()), description: '', tags: [], kind: 'generative', gen: 'nebula', seed: Math.floor(Math.random() * 999) }),
   },
   products: {
-    title: 'Tienda',
+    title: L('Tienda', 'Shop'),
     fields: [
       { k: 'name', label: 'Producto' },
       { k: 'category', label: 'Categoría', type: 'select', options: ['stickers', 'ropa', 'prints', 'objetos'] },
@@ -38,41 +42,56 @@ const LISTS: Record<ListKey, { title: string; fields: Field[]; blank: () => any 
       { k: 'seed', label: 'Semilla', type: 'number' },
       { k: 'media', label: 'Foto del producto', type: 'media' },
       { k: 'description', label: 'Descripción', type: 'textarea' },
+      { k: 'en.name', label: 'Product (EN)' },
+      { k: 'en.description', label: 'Description (EN)', type: 'textarea' },
     ],
     blank: () => ({ id: uid('pr'), name: 'Nuevo producto', category: 'objetos', price: 100, description: '', gen: 'glyph', seed: Math.floor(Math.random() * 999) }),
   },
   films: {
-    title: 'Videosala',
+    title: L('Videosala', 'Screening room'),
     fields: [
       { k: 'title', label: 'Título' },
       { k: 'author', label: 'Autor' },
       { k: 'duration', label: 'Duración (s)', type: 'number' },
       { k: 'gen', label: 'Proyección generativa', type: 'select', options: ['nebula', 'cathedral', 'pulse', 'bloom'] },
       { k: 'media', label: 'Video (mp4 / webm)', type: 'media' },
+      { k: 'en.title', label: 'Title (EN)' },
     ],
     blank: () => ({ id: uid('f'), title: 'Nueva proyección', author: '', duration: 60, gen: 'nebula' }),
   },
   games: {
-    title: 'Videojuegos',
+    title: L('Videojuegos', 'Videogames'),
     fields: [
       { k: 'title', label: 'Título' },
       { k: 'kind', label: 'Tipo', type: 'select', options: ['internal', 'url'] },
       { k: 'target', label: 'Destino (stars · synesthesia · URL del juego)' },
       { k: 'open', label: 'Puerta abierta', type: 'bool' },
       { k: 'description', label: 'Descripción', type: 'textarea' },
+      { k: 'en.title', label: 'Title (EN)' },
+      { k: 'en.description', label: 'Description (EN)', type: 'textarea' },
     ],
     blank: () => ({ id: uid('g'), title: 'Nuevo juego', description: '', kind: 'url', target: '', open: false }),
   },
   events: {
-    title: 'Eventos',
+    title: L('Eventos', 'Events'),
     fields: [
       { k: 'title', label: 'Evento' },
       { k: 'date', label: 'Fecha', type: 'date' },
       { k: 'kind', label: 'Tipo', type: 'select', options: ['exposicion', 'lanzamiento', 'curaduria', 'convocatoria', 'concurso'] },
       { k: 'description', label: 'Descripción', type: 'textarea' },
+      { k: 'en.title', label: 'Event (EN)' },
+      { k: 'en.description', label: 'Description (EN)', type: 'textarea' },
     ],
     blank: () => ({ id: uid('e'), title: 'Nuevo evento', date: new Date().toISOString().slice(0, 10), kind: 'exposicion', description: '' }),
   },
+}
+
+const getP = (o: any, k: string) => k.split('.').reduce((a, p) => a?.[p], o)
+const setP = (o: any, k: string, v: any) => {
+  const ps = k.split('.')
+  const last = ps.pop()!
+  const t = ps.reduce((a, p) => (a[p] ??= {}), o)
+  t[last] = v
 }
 
 async function sha(s: string) {
@@ -88,8 +107,8 @@ export function openAdmin(ui: HTMLElement, onClose: () => void) {
     onClose()
   }
   if (sessionStorage.getItem('cm.admin') === content.data.settings.adminHash) return panel(el, close)
-  el.innerHTML = `<div class="login glass"><span class="star">✦</span><h2 class="serif">SuperAdmin</h2><p class="note">Panel curatorial de Cybermuseo. Contraseña demo: <code>cybermuseo</code></p>
-    <form><input type="password" placeholder="Contraseña" autofocus><div class="row"><button class="btn primary">Entrar</button><button type="button" class="btn ghost" data-back>Volver al museo</button></div><p class="note err"></p></form></div>`
+  el.innerHTML = `<div class="login glass"><span class="star">✦</span><h2 class="serif">SuperAdmin</h2><p class="note">${L('Panel curatorial de Cyber Museum. Contraseña demo:', 'Cyber Museum curatorial panel. Demo password:')} <code>cybermuseo</code></p>
+    <form><input type="password" placeholder="${L('Contraseña', 'Password')}" autofocus><div class="row"><button class="btn primary">${L('Entrar', 'Sign in')}</button><button type="button" class="btn ghost" data-back>${L('Volver al museo', 'Back to the museum')}</button></div><p class="note err"></p></form></div>`
   el.querySelector('[data-back]')!.addEventListener('click', close)
   el.querySelector('form')!.addEventListener('submit', async (e) => {
     e.preventDefault()
@@ -98,27 +117,27 @@ export function openAdmin(ui: HTMLElement, onClose: () => void) {
     if (hash === content.data.settings.adminHash) {
       sessionStorage.setItem('cm.admin', hash)
       panel(el, close)
-    } else (el.querySelector('.err') as HTMLElement).textContent = 'Contraseña incorrecta.'
+    } else (el.querySelector('.err') as HTMLElement).textContent = L('Contraseña incorrecta.', 'Wrong password.')
   })
 }
 
 function panel(el: HTMLElement, close: () => void) {
   const tabs = [
-    ['resumen', 'Resumen'],
-    ['salas', 'Salas'],
-    ['artworks', 'Obras'],
-    ['temporal', 'Temporal · Convocatoria'],
-    ['films', 'Videosala'],
-    ['games', 'Videojuegos'],
-    ['products', 'Tienda'],
-    ['events', 'Eventos'],
-    ['builder', 'Constructor procedural'],
-    ['pagos', 'Pagos'],
-    ['ajustes', 'Ajustes'],
+    ['resumen', L('Resumen', 'Overview')],
+    ['salas', L('Salas', 'Halls')],
+    ['artworks', L('Obras', 'Artworks')],
+    ['temporal', L('Temporal · Convocatoria', 'Temporary · Open call')],
+    ['films', L('Videosala', 'Screening room')],
+    ['games', L('Videojuegos', 'Videogames')],
+    ['products', L('Tienda', 'Shop')],
+    ['events', L('Eventos', 'Events')],
+    ['builder', L('Constructor procedural', 'Procedural builder')],
+    ['pagos', L('Pagos', 'Payments')],
+    ['ajustes', L('Ajustes', 'Settings')],
   ]
   let tab = 'resumen'
-  el.innerHTML = `<button class="icon-btn glass menu-toggle">☰</button><aside class="glass"><a class="brand" href="#"><span class="glyph star">✦</span><span><b>CYBERMUSEO</b><small>SUPERADMIN</small></span></a>
-    ${tabs.map(([k, l]) => `<button data-tab="${k}">${l}</button>`).join('')}<button data-exit>← Volver al museo</button></aside><main></main>`
+  el.innerHTML = `<button class="icon-btn glass menu-toggle">☰</button><aside class="glass"><a class="brand" href="#"><span class="glyph star">✦</span><span><b>CYBER MUSEUM</b><small>SUPERADMIN</small></span></a>
+    ${tabs.map(([k, l]) => `<button data-tab="${k}">${l}</button>`).join('')}<button data-exit>← ${L('Volver al museo', 'Back to the museum')}</button></aside><main></main>`
   const main = el.querySelector('main')!
   const aside = el.querySelector('aside')!
   el.querySelector('.menu-toggle')!.addEventListener('click', () => aside.classList.toggle('open'))
@@ -137,7 +156,7 @@ function panel(el: HTMLElement, close: () => void) {
 const views: Record<string, (m: HTMLElement, rerender: () => void) => void> = {
   resumen(m) {
     const c = content.data
-    m.innerHTML = `<h1 class="serif">Resumen</h1><p class="lead">Todo lo que edites aquí se aplica al edificio en tiempo real y se guarda en este navegador. Usa Ajustes → Exportar para respaldar o mover el contenido.</p>
+    m.innerHTML = `<h1 class="serif">${L('Resumen', 'Overview')}</h1><p class="lead">Todo lo que edites aquí se aplica al edificio en tiempo real y se guarda en este navegador. Usa Ajustes → Exportar para respaldar o mover el contenido.</p>
       <div class="cards">${[
         ['Obras', c.artworks.length],
         ['Productos', c.products.length],
@@ -150,39 +169,41 @@ const views: Record<string, (m: HTMLElement, rerender: () => void) => void> = {
   },
   salas(m, rr) {
     const c = content.data
-    m.innerHTML = `<h1 class="serif">Salas</h1><p class="lead">Abre o cierra alas del edificio y edita sus nombres. Una sala cerrada muestra un velo "Próximamente" en su arco.</p>
-      <div class="sec glass"><table><tr><th>Sala</th><th>Nombre</th><th>Subtítulo</th><th>Abierta</th></tr>${ROOMS.filter((r) => r !== 'futuro').map((r) => `<tr><td><code>${r}</code></td><td><input data-r="${r}" data-k="name" value="${esc(c.rooms[r].name)}"></td><td><input data-r="${r}" data-k="subtitle" value="${esc(c.rooms[r].subtitle)}"></td><td><input type="checkbox" data-r="${r}" data-k="open" ${c.rooms[r].open ? 'checked' : ''} ${r === 'lobby' ? 'disabled' : ''}></td></tr>`).join('')}</table>
+    m.innerHTML = `<h1 class="serif">${L('Salas', 'Halls')}</h1><p class="lead">Abre o cierra alas del edificio y edita sus nombres. Una sala cerrada muestra un velo "Próximamente" en su arco.</p>
+      <div class="sec glass"><table><tr><th>${L('Sala', 'Hall')}</th><th>${L('Nombre', 'Name')}</th><th>Name (EN)</th><th>${L('Subtítulo', 'Subtitle')}</th><th>Subtitle (EN)</th><th>${L('Abierta', 'Open')}</th></tr>${ROOMS.filter((r) => r !== 'futuro').map((r) => `<tr><td><code>${r}</code></td><td><input data-r="${r}" data-k="name" value="${esc(c.rooms[r].name)}"></td><td><input data-r="${r}" data-k="en.name" value="${esc(c.rooms[r].en?.name ?? '')}"></td><td><input data-r="${r}" data-k="subtitle" value="${esc(c.rooms[r].subtitle)}"></td><td><input data-r="${r}" data-k="en.subtitle" value="${esc(c.rooms[r].en?.subtitle ?? '')}"></td><td><input type="checkbox" data-r="${r}" data-k="open" ${c.rooms[r].open ? 'checked' : ''} ${r === 'lobby' ? 'disabled' : ''}></td></tr>`).join('')}</table>
       <div class="row" style="margin-top:12px"><button class="btn primary sm" data-save>Guardar salas</button></div></div>`
     m.querySelector('[data-save]')!.addEventListener('click', () => {
       content.update((d) => m.querySelectorAll<HTMLInputElement>('[data-r]').forEach((i) => {
-        const room = d.rooms[i.dataset.r as RoomId] as any
-        room[i.dataset.k!] = i.type === 'checkbox' ? i.checked : i.value
+        setP(d.rooms[i.dataset.r as RoomId], i.dataset.k!, i.type === 'checkbox' ? i.checked : i.value)
       }))
       rr()
     })
   },
   temporal(m, rr) {
     const t = content.data.temp
-    m.innerHTML = `<h1 class="serif">Exposición temporal y convocatoria</h1>
+    m.innerHTML = `<h1 class="serif">${L('Exposición temporal y convocatoria', 'Temporary exhibition and open call')}</h1>
       <div class="sec glass"><div class="fgrid">
         <label>Título de la exposición<input data-k="title" value="${esc(t.title)}"></label>
         <label>Curaduría<input data-k="curator" value="${esc(t.curator)}"></label>
         <label>Título de la convocatoria<input data-k="callTitle" value="${esc(t.callTitle)}"></label>
         <label>Cierre<input data-k="callDeadline" value="${esc(t.callDeadline)}"></label>
-        <label style="grid-column:1/-1">Texto curatorial<textarea data-k="statement">${esc(t.statement)}</textarea></label>
+        <label style="grid-column:1/-1">${L('Texto curatorial', 'Curatorial text')}<textarea data-k="statement">${esc(t.statement)}</textarea></label>
+        <label>Title (EN)<input data-k="en.title" value="${esc(t.en?.title ?? '')}"></label>
+        <label>Open call title (EN)<input data-k="en.callTitle" value="${esc(t.en?.callTitle ?? '')}"></label>
+        <label style="grid-column:1/-1">Curatorial text (EN)<textarea data-k="en.statement">${esc(t.en?.statement ?? '')}</textarea></label>
         <label><span><input type="checkbox" data-k="callOpen" ${t.callOpen ? 'checked' : ''}> Convocatoria abierta</span></label>
-      </div><div class="row"><button class="btn primary sm" data-save>Guardar</button></div></div>
+      </div><div class="row"><button class="btn primary sm" data-save>${L('Guardar', 'Save')}</button></div></div>
       <div class="sec glass"><h3 class="serif">Propuestas recibidas (${content.data.submissions.length})</h3>
       <table><tr><th>Fecha</th><th>Nombre</th><th>Propuesta</th><th>Link</th><th></th></tr>${content.data.submissions.map((s) => `<tr><td>${timeAgo(s.at)}</td><td>${esc(s.name)}<br><small>${esc(s.email)}</small></td><td><b>${esc(s.title)}</b><br><small>${esc(s.message)}</small></td><td>${s.link ? `<a href="${esc(s.link)}" target="_blank" rel="noopener">abrir</a>` : ''}</td><td><button class="btn sm ghost" data-del="${s.id}">✕</button></td></tr>`).join('') || '<tr><td colspan="5">Aún no hay propuestas.</td></tr>'}</table></div>`
     m.querySelector('[data-save]')!.addEventListener('click', () => {
-      content.update((d) => m.querySelectorAll<HTMLInputElement>('.fgrid [data-k]').forEach((i) => ((d.temp as any)[i.dataset.k!] = i.type === 'checkbox' ? i.checked : i.value)))
+      content.update((d) => m.querySelectorAll<HTMLInputElement>('.fgrid [data-k]').forEach((i) => setP(d.temp, i.dataset.k!, i.type === 'checkbox' ? i.checked : i.value)))
       rr()
     })
     m.querySelectorAll<HTMLButtonElement>('[data-del]').forEach((b) => (b.onclick = () => (content.update((d) => (d.submissions = d.submissions.filter((s) => s.id !== b.dataset.del))), rr())))
   },
   builder(m, rr) {
     const s = content.data.settings
-    m.innerHTML = `<h1 class="serif">Constructor procedural</h1><p class="lead">Genera el ala vacía del edificio a partir de una semilla. Cambia la paleta del universo visible por los ventanales.</p>
+    m.innerHTML = `<h1 class="serif">${L('Constructor procedural', 'Procedural builder')}</h1><p class="lead">Genera el ala vacía del edificio a partir de una semilla. Cambia la paleta del universo visible por los ventanales.</p>
       <div class="sec glass"><div class="fgrid">
         <label>Nombre del espacio<input data-k="futureName" value="${esc(s.futureName)}"></label>
         <label>Tipología<select data-k="futureKind">${['mirador', 'santuario', 'archivo'].map((k) => `<option ${k === s.futureKind ? 'selected' : ''}>${k}</option>`).join('')}</select></label>
@@ -210,11 +231,11 @@ const views: Record<string, (m: HTMLElement, rerender: () => void) => void> = {
   },
   pagos(m, rr) {
     const s = content.data.settings
-    m.innerHTML = `<h1 class="serif">Pagos</h1><p class="lead">Cada pago confirmado se emite al bus de pagos: enciende la nube gaussiana, cambia la luz del edificio, genera ondas en el piso y planta una flor en el jardín, en todos los visitantes conectados.</p>
+    m.innerHTML = `<h1 class="serif">${L('Pagos', 'Payments')}</h1><p class="lead">Cada pago confirmado se emite al bus de pagos: enciende la nube gaussiana, cambia la luz del edificio, genera ondas en el piso y planta una flor en el jardín, en todos los visitantes conectados.</p>
       <div class="sec glass"><h3 class="serif">Simulador</h3><div class="row">${[20, 100, 500, 2000].map((a) => `<button class="btn sm" data-sim="${a}">Simular ${money(a)}</button>`).join('')}<button class="btn sm" data-burst>Ráfaga ×10</button></div></div>
       <div class="sec glass"><h3 class="serif">Integración pey (siguiente fase)</h3>
         <p class="note">El navegador nunca guarda la API key. Un backend propio expone <code>POST /checkout</code> (llama a <code>api.pey.mx/codi/qr</code> o <code>/payment-link/create</code>) y <code>GET /events</code> (SSE con los webhooks <code>codi.qr.payment_received</code> / <code>payment_link.status_updated</code> validados). Deja vacío para usar el modo demo.</p>
-        <div class="row"><input data-backend placeholder="https://api.tu-backend.mx" value="${esc(s.peyBackend)}" style="flex:1"><button class="btn primary sm" data-save>Guardar</button></div></div>
+        <div class="row"><input data-backend placeholder="https://api.tu-backend.mx" value="${esc(s.peyBackend)}" style="flex:1"><button class="btn primary sm" data-save>${L('Guardar', 'Save')}</button></div></div>
       <div class="sec glass"><h3 class="serif">Historial</h3>${payTable(60)}<div class="row" style="margin-top:10px"><button class="btn sm ghost" data-clear>Borrar historial</button></div></div>`
     const names = ['Lía', 'Kai', 'Mara', 'Noa', 'Iker', 'Vera', 'Antu', 'Sol']
     const sim = (a: number) => payments.ingest(payments.make(a, 'Donación simulada', 'donacion', names[Math.floor(Math.random() * names.length)], 'sim'))
@@ -228,11 +249,11 @@ const views: Record<string, (m: HTMLElement, rerender: () => void) => void> = {
   },
   ajustes(m, rr) {
     const s = content.data.settings
-    m.innerHTML = `<h1 class="serif">Ajustes</h1>
+    m.innerHTML = `<h1 class="serif">${L('Ajustes', 'Settings')}</h1>
       <div class="sec glass"><h3 class="serif">Multijugador</h3><div class="fgrid">
         <label><span><input type="checkbox" data-k="multiplayer" ${s.multiplayer ? 'checked' : ''}> Activar multijugador P2P</span></label>
         <label>Nombre de la sala de red<input data-k="roomName" value="${esc(s.roomName)}"></label>
-      </div><div class="row"><button class="btn primary sm" data-save>Guardar</button></div></div>
+      </div><div class="row"><button class="btn primary sm" data-save>${L('Guardar', 'Save')}</button></div></div>
       <div class="sec glass"><h3 class="serif">Contraseña</h3><div class="row"><input type="password" data-pw placeholder="Nueva contraseña"><button class="btn sm" data-setpw>Cambiar</button></div><p class="note">Protección local de demo. Para producción, el panel deberá autenticarse contra el backend.</p></div>
       <div class="sec glass"><h3 class="serif">Respaldo</h3><div class="row"><button class="btn sm" data-export>Exportar JSON</button><label class="btn sm">Importar JSON<input type="file" accept="application/json" data-import hidden></label><button class="btn sm ghost" data-reset>Restaurar contenido original</button></div></div>`
     m.querySelector('[data-save]')!.addEventListener('click', () => {
@@ -248,7 +269,7 @@ const views: Record<string, (m: HTMLElement, rerender: () => void) => void> = {
       alert('Contraseña actualizada')
     })
     m.querySelector('[data-export]')!.addEventListener('click', () => {
-      const a = h('a', { href: URL.createObjectURL(new Blob([content.export()], { type: 'application/json' })), download: 'cybermuseo-contenido.json' })
+      const a = h('a', { href: URL.createObjectURL(new Blob([content.export()], { type: 'application/json' })), download: 'cyber-museum-content.json' })
       a.click()
     })
     m.querySelector('[data-import]')!.addEventListener('change', async (e) => {
@@ -274,12 +295,12 @@ function payTable(n: number) {
 function listView(m: HTMLElement, key: ListKey, rr: () => void) {
   const def = LISTS[key]
   const list = content.data[key] as any[]
-  m.innerHTML = `<h1 class="serif">${def.title}</h1><div class="row" style="margin-bottom:14px"><button class="btn primary sm" data-add>+ Añadir</button></div><div class="items"></div>`
+  m.innerHTML = `<h1 class="serif">${def.title}</h1><div class="row" style="margin-bottom:14px"><button class="btn primary sm" data-add>+ ${L('Añadir', 'Add')}</button></div><div class="items"></div>`
   const items = m.querySelector('.items')!
   list.forEach((it, idx) => {
     const sec = h('div', { class: 'sec glass' })
-    sec.innerHTML = `<div class="row" style="justify-content:space-between"><h3 class="serif">${esc(it.title ?? it.name)}</h3><div class="row"><div class="thumb"></div><button class="btn sm ghost" data-up>↑</button><button class="btn sm ghost" data-del>Eliminar</button></div></div>
-      <div class="fgrid">${def.fields.map((f) => field(f, it[f.k])).join('')}</div><div class="row"><button class="btn primary sm" data-save>Guardar</button><span class="note" data-msg></span></div>`
+    sec.innerHTML = `<div class="row" style="justify-content:space-between"><h3 class="serif">${esc(it.title ?? it.name)}${it.en?.title || it.en?.name ? ` <small class="note">· ${esc(it.en.title ?? it.en.name)}</small>` : ''}</h3><div class="row"><div class="thumb"></div><button class="btn sm ghost" data-up>↑</button><button class="btn sm ghost" data-del>${L('Eliminar', 'Delete')}</button></div></div>
+      <div class="fgrid">${def.fields.map((f) => field(f, getP(it, f.k))).join('')}</div><div class="row"><button class="btn primary sm" data-save>${L('Guardar', 'Save')}</button><span class="note" data-msg></span></div>`
     items.append(sec)
     const th = sec.querySelector('.thumb')!
     if (it.media) resolveMedia(it.media).then((u) => u && it.kind !== 'video' && it.kind !== 'model' && th.append(h('img', { src: u, style: { width: '48px', height: '48px', objectFit: 'cover', borderRadius: '8px' } })))
@@ -289,7 +310,7 @@ function listView(m: HTMLElement, key: ListKey, rr: () => void) {
       th.append(c)
     }
     sec.querySelector('[data-save]')!.addEventListener('click', async () => {
-      const next = { ...it }
+      const next = structuredClone(it)
       for (const f of def.fields) {
         const i = sec.querySelector(`[data-f="${f.k}"]`) as HTMLInputElement
         if (f.type === 'media') {
@@ -300,10 +321,10 @@ function listView(m: HTMLElement, key: ListKey, rr: () => void) {
             if (key === 'artworks' && next.kind === 'generative') next.kind = file.type.startsWith('video') ? 'video' : /gltf|glb/.test(file.name) ? 'model' : 'image'
           }
           if ((sec.querySelector(`[data-clear="${f.k}"]`) as HTMLInputElement)?.checked) delete next.media
-        } else if (f.type === 'number') next[f.k] = Number(i.value)
-        else if (f.type === 'bool') next[f.k] = i.checked
-        else if (f.type === 'tags') next[f.k] = i.value.split(',').map((s) => s.trim()).filter(Boolean)
-        else next[f.k] = i.value
+        } else if (f.type === 'number') setP(next, f.k, Number(i.value))
+        else if (f.type === 'bool') setP(next, f.k, i.checked)
+        else if (f.type === 'tags') setP(next, f.k, i.value.split(',').map((s) => s.trim()).filter(Boolean))
+        else setP(next, f.k, i.value)
       }
       content.update((d) => ((d[key] as any[])[idx] = next))
       rr()

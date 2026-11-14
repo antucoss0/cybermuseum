@@ -1,4 +1,4 @@
-# Cybermuseo
+# Cyber Museum
 
 **Arte · Tecnología · Eternidad.** Un museo digital 3D persistente y multijugador que se recorre en el navegador como un videojuego. Es una catedral neogótica futurista que flota en un universo de galaxias. Un estudio de **Ethercoded**.
 
@@ -32,6 +32,10 @@ Hoy el museo usa `SimulatedProvider` (QR de demostración y botón “Simular pa
 3. `GET /events` (SSE): emite cada pago confirmado como `PaymentEvent` para que todos los museos abiertos reaccionen.
 
 La API key nunca va en el navegador.
+
+## Idiomas / Languages
+
+Bilingüe ES/EN: botón `EN`/`ES` en la landing y el HUD (o `?lang=en`). El contenido acepta traducciones en `en` (campos "(EN)" en SuperAdmin).
 
 ## Desarrollo
 
