@@ -8,8 +8,8 @@ const room = (id: RoomId, name: string, subtitle: string, description: string, o
   open,
 })
 
-// SHA-256 of "cybermuseo" (demo passcode, change it in the admin).
-export const DEFAULT_ADMIN_HASH = 'a6a4f95a58a417041cdcd101febc11e8c71cae1e06f23c8c7c3a20522f066bac'
+// SHA-256 of PIN "4444" (demo passcode, change it in the admin).
+export const DEFAULT_ADMIN_HASH = '79f06f8fde333461739f220090a23cb2a79f6d714bee100d0e4b4af249294619'
 
 export function defaultContent(): Content {
   return withEnglish({
