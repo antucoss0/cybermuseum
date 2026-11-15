@@ -293,7 +293,7 @@ function characterStage(host: HTMLElement) {
       const on = s.kind === hovered || (!hovered && s.kind === selected)
       s.lift += ((on ? 1 : 0) - s.lift) * Math.min(1, dt * 6)
       s.g.scale.setScalar(1 + s.lift * 0.12)
-      s.g.rotation.y = Math.sin(t * 0.4 + s.g.position.x) * 0.25 + (s.kind === hovered ? Math.sin(t * 0.8) * 0.35 : 0)
+      s.g.rotation.y = Math.PI + Math.sin(t * 0.4 + s.g.position.x) * 0.25 + (s.kind === hovered ? Math.sin(t * 0.8) * 0.35 : 0)
       ;(s.beam.material as THREE.MeshBasicMaterial).opacity = 0.04 + s.lift * 0.14
       s.ring.scale.setScalar(1 + Math.sin(t * 2) * 0.03 * (1 + s.lift))
       s.rig?.update(dt, 0, t)

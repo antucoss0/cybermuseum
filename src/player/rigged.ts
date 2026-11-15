@@ -8,8 +8,8 @@ import type { AvatarKind } from './avatar'
  * are shared (retargeted by bone name) so final models only need a `mixamorig` skeleton.
  * Swap a file here to drop in the definitive characters.
  */
-export const RIGS: Record<AvatarKind, { file: string; height: number; present: string; additive?: boolean; float?: number }> = {
-  oraculo: { file: 'Michelle.glb', height: 1.72, present: 'SambaDance' },
+export const RIGS: Record<AvatarKind, { file: string; height: number; present: string; additive?: boolean; float?: number; yaw?: number }> = {
+  oraculo: { file: 'Michelle.glb', height: 1.72, present: 'SambaDance', yaw: Math.PI },
   centinela: { file: 'Soldier.glb', height: 1.86, present: 'agree', additive: true },
   astral: { file: 'Xbot.glb', height: 1.8, present: 'headShake', additive: true, float: 0.12 },
 }
@@ -57,16 +57,38 @@ export async function loadRig(kind: AvatarKind, tint?: string): Promise<Rig> {
       m.material = mat
     }
   })
-  model.rotation.y = Math.PI
+  model.rotation.y = def.yaw ?? 0
   fitHeight(model, def.height)
   const root = new THREE.Group()
   root.add(model)
   const mixer = new THREE.AnimationMixer(model)
   const foreign = def.file !== 'Xbot.glb'
+  const source = foreign ? (await loadGLB('Xbot.glb')).scene : null
+  const rest = (root: THREE.Object3D) => {
+    const m = new Map<string, THREE.Quaternion>()
+    root.traverse((o) => (o as THREE.Bone).isBone && m.set(o.name, o.quaternion.clone()))
+    return m
+  }
+  const restS = source ? rest(source) : null
+  const restT = rest(model)
+  const qa = new THREE.Quaternion()
+  const qc = new THREE.Quaternion()
+  // Rest-pose-corrected retarget for Mixamo skeletons: q' = restT * restS^-1 * q
   const retarget = (c: THREE.AnimationClip) => {
-    if (!foreign) return c
+    if (!restS) return c
     const k = c.clone()
-    k.tracks = k.tracks.filter((t) => !t.name.startsWith('mixamorigHips.'))
+    for (const t of k.tracks) {
+      const [bone, prop] = t.name.split('.')
+      const a = restS.get(bone)
+      const b = restT.get(bone)
+      if (prop !== 'quaternion' || !a || !b) continue
+      qc.copy(b).multiply(a.clone().invert())
+      const v = t.values
+      for (let i = 0; i < v.length; i += 4) {
+        qa.fromArray(v, i).premultiply(qc)
+        qa.toArray(v, i)
+      }
+    }
     return k
   }
   const find = (n: string) => {
