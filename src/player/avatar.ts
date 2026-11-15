@@ -1,5 +1,6 @@
 import { L } from '../core/i18n'
 import * as THREE from 'three'
+import { loadRig, rigsEnabled, type Rig } from './rigged'
 
 export type AvatarKind = 'oraculo' | 'centinela' | 'astral'
 
@@ -132,6 +133,15 @@ export function createAvatar(kind: AvatarKind, color?: string): Avatar {
   g.add(shadow)
   let phase = 0
   let tag: THREE.Sprite | null = null
+  let rig: Rig | null = null
+  if (rigsEnabled())
+    loadRig(kind, color)
+      .then((r) => {
+        rig = r
+        g.add(r.root)
+        body.visible = false
+      })
+      .catch(() => {})
   return {
     group: g,
     kind,
@@ -158,6 +168,7 @@ export function createAvatar(kind: AvatarKind, color?: string): Avatar {
       g.add(tag)
     },
     update(dt, speed, t) {
+      if (rig) return rig.update(dt, speed, t)
       phase += dt * (4 + speed * 1.8) * Math.min(1, speed)
       const s = Math.min(1, speed / 4)
       if (kind === 'astral') {

@@ -37,7 +37,7 @@ export interface Wing {
 
 export const WING_DEFS: { room: RoomId; k: number; W: number; L: number; rise?: number }[] = [
   { room: 'videosala', k: 0, W: 18, L: 22 },
-  { room: 'escultura', k: 1, W: 18, L: 20, rise: 2.4 },
+  { room: 'escultura', k: 1, W: 22, L: 28, rise: 2.4 },
   { room: 'pintura', k: 2, W: 14, L: 26 },
   { room: 'tienda', k: 3, W: 16, L: 18 },
   { room: 'jardin', k: 4, W: 44, L: 44 },

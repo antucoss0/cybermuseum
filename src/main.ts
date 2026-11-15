@@ -6,7 +6,8 @@ import './style.css'
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { Engine } from './core/engine'
-import { L } from './core/i18n'
+import { L, tx } from './core/i18n'
+import { CORRIDOR_END, LOBBY_R } from './world/building'
 import { detectQuality, isTouch } from './core/util'
 import { content } from './content/store'
 import type { GameDoor, RoomId } from './content/types'
@@ -169,7 +170,7 @@ function place(room: RoomId) {
 
 // ---------- main loop ----------
 let landingP = 0
-let mode: 'landing' | 'museum' = 'landing'
+let mode: 'landing' | 'museum' | 'cinematic' = 'landing'
 let poseAcc = 0
 const tmpV = new THREE.Vector3()
 engine.onTick((dt, t) => {
@@ -202,6 +203,18 @@ engine.onTick((dt, t) => {
     camera.position.set(Math.sin(a) * r, y, Math.cos(a) * r)
     camera.lookAt(0, 7 + landingP * 2, 0)
     world.tick(dt, t, 'lobby')
+    return
+  }
+  if (mode === 'cinematic' && cine) {
+    cine.t += dt
+    const u = Math.min(1, cine.t / cine.dur)
+    const e = u * u * (3 - 2 * u) * 0.25 + u * 0.75
+    camera.position.copy(cine.pos.getPoint(e))
+    camera.lookAt(cine.look.getPoint(e))
+    const seg = Math.min(cine.caps.length - 1, Math.floor(e * cine.caps.length))
+    if (seg !== cine.seg) ((cine.seg = seg), cine.onSeg(seg))
+    world.tick(dt, t, cine.rooms[seg] ?? 'lobby')
+    if (u >= 1) cine.end()
     return
   }
   if (!controller || !hud) return
@@ -246,12 +259,80 @@ engine.onTick((dt, t) => {
   }
 })
 let nearest: World['interactables'][number] | null = null
+let cine: { t: number; dur: number; seg: number; pos: THREE.CatmullRomCurve3; look: THREE.CatmullRomCurve3; caps: [string, string][]; rooms: (RoomId | undefined)[]; onSeg: (i: number) => void; end: () => void } | null = null
+
+/** AAA-style fly-through: galaxy exterior → dome → Gaussian cloud → four wings → the visitor. */
+function cinematic(): Promise<void> {
+  return new Promise((res) => {
+    const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z)
+    const wing = (r: RoomId) => world.wings.find((w) => w.room === r)!
+    const peek = (r: RoomId): [THREE.Vector3, THREE.Vector3] => [wing(r).world(0, -LOBBY_R + 6, 4.2), wing(r).world(0, -CORRIDOR_END - 14, 2.6)]
+    const nm = (r: RoomId) => tx(content.data.rooms[r], 'name')
+    const sub = (r: RoomId) => tx(content.data.rooms[r], 'subtitle')
+    const shots: [THREE.Vector3, THREE.Vector3, [string, string], RoomId?][] = [
+      [V(0, 90, 150), V(0, 12, 0), [L('Ethercoded presenta', 'Ethercoded presents'), '']],
+      [V(14, 64, 26), V(0, 18, 0), ['', 'CYBER MUSEUM']],
+      [V(2, 34, 3), V(0, 8, 0), ['', '']],
+      [V(15, 15, 13), V(0, 10, 0), [L('Pieza central', 'Centerpiece'), L('La Nube Gaussiana', 'The Gaussian Cloud')]],
+      [V(-5, 2.5, 12), V(0, 17, 0), [L('La bóveda', 'The vault'), L('Un templo renacentista del futuro', 'A Renaissance temple of the future')]],
+      [...peek('videosala'), [sub('videosala'), nm('videosala')], 'videosala'],
+      [...peek('pintura'), [sub('pintura'), nm('pintura')], 'pintura'],
+      [...peek('jardin'), [sub('jardin'), nm('jardin')], 'jardin'],
+      [...peek('videojuegos'), [sub('videojuegos'), nm('videojuegos')], 'videojuegos'],
+      [V(0, 10, 25), V(0, 9, 0), ['', L('Arte · Tecnología · Eternidad', 'Art · Technology · Eternity')]],
+      [V(0, 3.4, 21.2), V(0, 1.9, 16), ['', '']],
+    ]
+    const el = document.createElement('div')
+    el.id = 'cine'
+    el.innerHTML = `<div class="fade"></div><div class="bar t"></div><div class="bar b"></div><div class="cap"><span class="kicker"></span><h2 class="serif"></h2></div><button class="btn ghost sm skip">${L('Saltar', 'Skip')} ⏭</button>`
+    ui.append(el)
+    requestAnimationFrame(() => el.classList.add('go'))
+    const cap = el.querySelector('.cap') as HTMLElement
+    mode = 'cinematic'
+    audio.unlock()
+    audio.setRoom('lobby', true)
+    let finished = false
+    const end = () => {
+      if (finished) return
+      finished = true
+      el.classList.add('out')
+      removeEventListener('keydown', key)
+      setTimeout(() => el.remove(), 1300)
+      cine = null
+      res()
+    }
+    const key = (e: KeyboardEvent) => (e.key === 'Escape' || e.key === ' ') && end()
+    addEventListener('keydown', key)
+    el.querySelector('.skip')!.addEventListener('click', end)
+    cine = {
+      t: 0,
+      dur: 19,
+      seg: -1,
+      pos: new THREE.CatmullRomCurve3(shots.map((s) => s[0]), false, 'centripetal'),
+      look: new THREE.CatmullRomCurve3(shots.map((s) => s[1]), false, 'centripetal'),
+      caps: shots.slice(0, -1).map((s) => s[2]),
+      rooms: shots.slice(0, -1).map((s) => s[3]),
+      onSeg: (i) => {
+        const [k, ttl] = cine!.caps[i]
+        cap.classList.remove('show')
+        void cap.offsetWidth
+        ;(cap.querySelector('.kicker') as HTMLElement).textContent = k
+        ;(cap.querySelector('h2') as HTMLElement).textContent = ttl
+        if (k || ttl) cap.classList.add('show')
+        audio.bell(220 * Math.pow(2, [0, 3, 7, 10, 12, 15, 19, 22, 24][i % 9] / 12), 0.07, 4)
+        if (i > 3) audio.whoosh()
+      },
+      end,
+    }
+  })
+}
 let portalKick = 0
 const bg = scene.background
 
 async function enterMuseum(profile: { kind: AvatarKind; name: string }) {
   me = profile
   mode = 'museum'
+  if (!location.hash.startsWith('#admin')) history.replaceState(null, '', location.pathname + location.search + '#/museo')
   const av = createAvatar(profile.kind)
   scene.add(av.group)
   controller = new Controller(world.nav, av, camera, engine.renderer.domElement)
@@ -310,6 +391,15 @@ async function boot() {
     handleHash()
     return
   }
+  const route = location.hash
+  if (route === '#/museo') {
+    const saved = JSON.parse(localStorage.getItem('cm.profile') || '{}')
+    if (saved.kind) {
+      document.body.classList.remove('landing-mode')
+      await enterMuseum(saved)
+      return
+    }
+  }
   const it = intro(ui)
   let p = 0
   const iv = setInterval(() => it.progress((p = Math.min(0.95, p + 0.12))), 180)
@@ -318,11 +408,17 @@ async function boot() {
   clearInterval(iv)
   await it.done()
   if (location.hash === '#admin') return handleHash()
+  if (route === '#/personajes' || route === '#/museo') {
+    document.body.classList.remove('landing-mode')
+    mode = 'museum'
+    const profile = await selectCharacter(ui)
+    await cinematic()
+    return enterMuseum(profile)
+  }
   landing(ui, (v) => (landingP = v), async () => {
     mode = 'museum'
-    const a = camera.position.clone()
     const profile = await selectCharacter(ui)
-    void a
+    if (!params.has('nocine')) await cinematic()
     await enterMuseum(profile)
   })
 }

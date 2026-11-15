@@ -309,3 +309,47 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 400; margin: 0; letter-spac
 @keyframes portalTxt { 0% { opacity: 0; } 18%, 70% { opacity: 1; transform: none; filter: none; } 100% { opacity: 0; transform: translateY(-10px) scale(1.04); filter: blur(6px); } }
 #hud [data-sound].off { opacity: .45; text-decoration: line-through; }
 body.xr-ar #gl { background: transparent; }
+
+/* ---------- landing motion ---------- */
+#landing::before { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0; background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgba(139, 92, 246, .16), transparent 70%); transition: background .1s; }
+#landing .panel { perspective: 1400px; }
+#landing .panel .card { rotate: var(--tilt, 0 0 1 0deg); transition: rotate .25s ease-out, opacity .9s, transform .9s, filter .9s; position: relative; overflow: hidden; }
+#landing .panel .card::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(500px circle at var(--gx, 50%) var(--gy, 0%), rgba(201, 179, 255, .12), transparent 55%); border-radius: inherit; }
+#landing .w { display: inline-block; opacity: 0; transform: translateY(.55em) rotateX(55deg); filter: blur(8px); transform-origin: 50% 100%; transition: opacity .8s, transform .9s cubic-bezier(.2, .8, .2, 1), filter .8s; transition-delay: calc(var(--i) * 55ms + 120ms); }
+#landing .panel.in .w { opacity: 1; transform: none; filter: none; }
+#landing h1 .w:hover, #landing h2 .w:hover { color: #fff; text-shadow: 0 0 18px rgba(184, 156, 255, .9); transition-delay: 0s; }
+#landing .btn { transition: translate .25s ease-out, box-shadow .3s, background .3s; }
+#landing .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0; }
+#landing .stats div { border: 1px solid var(--stroke-2, rgba(201,179,255,.2)); border-radius: 14px; padding: 12px 10px; background: rgba(10, 8, 20, .35); }
+#landing .stats b { display: block; font-family: var(--serif); font-weight: 400; font-size: clamp(20px, 3vw, 30px); color: #fff; text-shadow: 0 0 20px rgba(139, 92, 246, .7); }
+#landing .stats span { font-size: 10.5px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+#landing .faq details { border-top: 1px solid rgba(201, 179, 255, .16); padding: 12px 0; }
+#landing .faq summary { cursor: pointer; list-style: none; font-family: var(--serif); font-size: 17px; display: flex; justify-content: space-between; gap: 12px; }
+#landing .faq summary::after { content: '✦'; color: var(--lav); transition: rotate .4s; }
+#landing .faq details[open] summary::after { rotate: 135deg; }
+#landing .faq details p { margin: 8px 0 0; animation: faqIn .5s ease-out; }
+@keyframes faqIn { from { opacity: 0; translate: 0 -6px; } }
+@media (max-width: 640px) { #landing .stats { grid-template-columns: repeat(2, 1fr); } }
+
+/* ---------- character stage ---------- */
+#select .stage { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none !important; z-index: -1; }
+#select { background: radial-gradient(ellipse at 50% 60%, rgba(20, 12, 40, .25), rgba(5, 4, 12, .75)); }
+#select .chars button { transition: transform .35s cubic-bezier(.2, .8, .2, 1), border-color .3s, box-shadow .3s; }
+#select .chars button:hover { transform: translateY(-6px); border-color: var(--lav); }
+#select .chars button .star { display: inline-block; transition: rotate .8s, scale .4s; }
+#select .chars button:hover .star { rotate: 180deg; scale: 1.4; }
+
+/* ---------- cinematic ---------- */
+#cine { position: fixed; inset: 0; z-index: 30; pointer-events: none; }
+#cine .bar { position: absolute; left: 0; right: 0; height: 11vh; background: #000; transition: height 1.2s cubic-bezier(.6, 0, .2, 1); }
+#cine .bar.t { top: 0; } #cine .bar.b { bottom: 0; }
+#cine.out .bar { height: 0; }
+#cine .cap { position: absolute; left: 0; right: 0; bottom: 17vh; text-align: center; color: #fff; }
+#cine .cap .kicker { display: block; margin-bottom: 8px; }
+#cine .cap h2 { font-size: clamp(28px, 5.5vw, 64px); font-weight: 400; letter-spacing: .04em; text-shadow: 0 0 30px rgba(139, 92, 246, .8); }
+#cine .cap.show { animation: capIn 1.7s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes capIn { 0% { opacity: 0; filter: blur(14px); letter-spacing: .4em; } 30%, 75% { opacity: 1; filter: none; letter-spacing: .04em; } 100% { opacity: 0; filter: blur(8px); } }
+#cine .skip { position: absolute; right: 18px; bottom: calc(11vh + 14px); pointer-events: auto; }
+#cine .fade { position: absolute; inset: 0; background: #000; opacity: 1; transition: opacity 1.4s; }
+#cine.go .fade { opacity: 0; }
+#cine.out .fade { opacity: 0; }
