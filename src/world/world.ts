@@ -1,3 +1,4 @@
+import { buildExterior } from './exterior'
 import { L } from '../core/i18n'
 import * as THREE from 'three'
 import type { Content, RoomId } from '../content/types'
@@ -35,6 +36,7 @@ export function buildWorld(c: Content, hooks: Hooks): World {
     if (open) runtimes.push(buildRoom(w, c, add, hooks))
   }
   const lobby = buildLobby(group, nav, c)
+  const exterior = buildExterior(group, wings)
   add({ id: 'altar', pos: new THREE.Vector3(0, 0, 4.6), r: 2.2, label: L('Ofrenda · encender la nube', 'Offering · light the cloud'), room: 'lobby', action: () => hooks.donate() })
   add({ id: 'events', pos: new THREE.Vector3(0, 0, -4.6), r: 2.2, label: L('Agenda de eventos', 'Events calendar'), room: 'lobby', action: () => hooks.openEvents() })
   const garden = runtimes.find((r) => r.addPlant)
@@ -53,6 +55,7 @@ export function buildWorld(c: Content, hooks: Hooks): World {
       return { x: p.x, z: p.z, yaw: (w.k * Math.PI) / 4 }
     },
     tick(dt, t, here) {
+      exterior.tick(t)
       for (const r of runtimes) r.tick(dt, t, here)
     },
     addPlant(p, fresh) {

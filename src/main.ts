@@ -205,6 +205,12 @@ engine.onTick((dt, t) => {
     world.tick(dt, t, 'lobby')
     return
   }
+  if (viewHold) {
+    camera.position.copy(viewHold[0])
+    camera.lookAt(viewHold[1])
+    world.tick(dt, t, 'jardin')
+    return
+  }
   if (mode === 'cinematic' && cine) {
     cine.t += dt
     const u = Math.min(1, cine.t / cine.dur)
@@ -327,6 +333,7 @@ function cinematic(): Promise<void> {
   })
 }
 let portalKick = 0
+let viewHold: [THREE.Vector3, THREE.Vector3] | null = null
 const bg = scene.background
 
 async function enterMuseum(profile: { kind: AvatarKind; name: string }) {
@@ -441,6 +448,7 @@ Object.assign(window, {
       setTimeout(() => controller?.keys.delete(code), ms)
     },
     act: () => nearest?.action(),
+    view: (p: number[] | null, l: number[] = [0, 10, 0]) => (viewHold = p ? [new THREE.Vector3(...p), new THREE.Vector3(...l)] : null),
     engine,
   },
 })

@@ -8,7 +8,7 @@ import { archOutline, archPath, candelabra, chandelier, column, spire, vault, wa
 
 export const LOBBY_R = 26
 export const LOBBY_H = 18
-const SIDES = 16
+export const SIDES = 16
 export const CORRIDOR_END = 36
 
 export interface Interactable {

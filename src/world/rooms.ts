@@ -670,21 +670,10 @@ const builders: Partial<Record<RoomId, Builder>> = {
       const tip = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 6), M.neon)
       local(w, tip, lx, lz, 1.15)
     }
-    // facade towers at the main portal
-    for (const s of [-1, 1]) {
-      const tw = new THREE.Mesh(new THREE.BoxGeometry(3, 22, 3), M.stone)
-      local(w, tw, s * 5.5, z0 - 1, 11)
-      const sp = new THREE.Mesh(new THREE.ConeGeometry(2.2, 10, 8), M.stone)
-      local(w, sp, s * 5.5, z0 - 1, 27)
-      const tip = new THREE.Mesh(new THREE.OctahedronGeometry(0.5), M.neon)
-      local(w, tip, s * 5.5, z0 - 1, 32.5)
-      const led = new THREE.Mesh(new THREE.BoxGeometry(0.06, 20, 0.06), M.neon)
-      local(w, led, s * 5.5 - s * 1.52, z0 - 2.52, 11)
-    }
     const portal = archOutline(6, 9, 0.12)
-    local(w, portal, 0, z0 - 0.2, 0, Math.PI)
+    local(w, portal, 0, z0 - 1.05, 0, Math.PI)
     const sign = label(L('Jardín Digital', 'Digital Garden'), L('cada pago hace crecer una flor', 'every payment grows a flower'), 6)
-    local(w, sign, 0, z0 - 1.6, 10, Math.PI)
+    local(w, sign, 0, z0 - 1.2, 10.2, Math.PI)
     const gl = new THREE.PointLight('#a98bff', 40, 0, 1.4)
     local(w, gl, 0, cz, 6)
     // living hero plants (glTF, transmission + subsurface) around the reflecting pool
