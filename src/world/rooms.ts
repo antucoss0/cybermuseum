@@ -6,7 +6,7 @@ import type { PaymentEvent } from '../payments/bus'
 import { M, label, shared } from './materials'
 import { archOutline, candelabra, chandelier, column } from './gothic'
 import { paintingStele, sculpture, textureFor } from './art'
-import type { Interactable, Wing } from './building'
+import { CORRIDOR_END, type Interactable, type Wing } from './building'
 
 export interface Hooks {
   openArt(a: Artwork): void
@@ -25,7 +25,7 @@ export interface RoomRuntime {
 
 type Builder = (w: Wing, c: Content, add: (i: Interactable) => void, hooks: Hooks) => RoomRuntime
 
-const z0 = -30
+const z0 = -CORRIDOR_END
 const local = (w: Wing, obj: THREE.Object3D, lx: number, lz: number, y = 0, ry = 0) => {
   obj.position.set(lx, y + w.floorY, lz)
   obj.rotation.y = ry
@@ -320,7 +320,7 @@ const builders: Partial<Record<RoomId, Builder>> = {
     return { tick: (_dt, tm) => spin.forEach((o, i) => ((o.rotation.y = tm * 0.2 * (i % 2 ? 1 : -1)), (o.position.y += Math.sin(tm + i) * 0.002))) }
   },
   jardin(w, c, add, hooks) {
-    const cz = -52
+    const cz = z0 - 22
     const R = 22
     const ground = new THREE.Mesh(
       new THREE.CircleGeometry(R + 4, 64),
@@ -340,7 +340,7 @@ const builders: Partial<Record<RoomId, Builder>> = {
     )
     ground.rotation.x = -Math.PI / 2
     local(w, ground, 0, cz, 0.005)
-    w.rect(0, -36, 5, 7)
+    w.rect(0, z0 - 6, 5, 7)
     w.circle(0, cz, R)
     const pool = new THREE.Mesh(new THREE.CircleGeometry(4.5, 48), new THREE.MeshStandardMaterial({ color: '#0a0920', metalness: 1, roughness: 0.05 }))
     pool.rotation.x = -Math.PI / 2
@@ -386,18 +386,18 @@ const builders: Partial<Record<RoomId, Builder>> = {
     // facade towers at the main portal
     for (const s of [-1, 1]) {
       const tw = new THREE.Mesh(new THREE.BoxGeometry(3, 22, 3), M.stone)
-      local(w, tw, s * 5.5, -31, 11)
+      local(w, tw, s * 5.5, z0 - 1, 11)
       const sp = new THREE.Mesh(new THREE.ConeGeometry(2.2, 10, 8), M.stone)
-      local(w, sp, s * 5.5, -31, 27)
+      local(w, sp, s * 5.5, z0 - 1, 27)
       const tip = new THREE.Mesh(new THREE.OctahedronGeometry(0.5), M.neon)
-      local(w, tip, s * 5.5, -31, 32.5)
+      local(w, tip, s * 5.5, z0 - 1, 32.5)
       const led = new THREE.Mesh(new THREE.BoxGeometry(0.06, 20, 0.06), M.neon)
-      local(w, led, s * 5.5 - s * 1.52, -32.52, 11)
+      local(w, led, s * 5.5 - s * 1.52, z0 - 2.52, 11)
     }
     const portal = archOutline(6, 9, 0.12)
-    local(w, portal, 0, -30.2, 0, Math.PI)
+    local(w, portal, 0, z0 - 0.2, 0, Math.PI)
     const sign = label(L('Jardín Digital', 'Digital Garden'), L('cada pago hace crecer una flor', 'every payment grows a flower'), 6)
-    local(w, sign, 0, -31.6, 10, Math.PI)
+    local(w, sign, 0, z0 - 1.6, 10, Math.PI)
     const gl = new THREE.PointLight('#a98bff', 40, 0, 1.4)
     local(w, gl, 0, cz, 6)
     // plants grown by payments

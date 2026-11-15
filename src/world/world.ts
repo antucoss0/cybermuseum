@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import type { Content, RoomId } from '../content/types'
 import type { PaymentEvent } from '../payments/bus'
 import { Nav } from './nav'
-import { WING_DEFS, buildLobby, makeWing, type Interactable, type Wing } from './building'
+import { CORRIDOR_END, WING_DEFS, buildLobby, makeWing, type Interactable, type Wing } from './building'
 import { buildRoom, type Hooks, type RoomRuntime } from './rooms'
 
 export interface World {
@@ -46,10 +46,10 @@ export function buildWorld(c: Content, hooks: Hooks): World {
     chandeliers: lobby.chandeliers,
     title: lobby.title,
     spawn(room) {
-      if (room === 'lobby') return { x: 0, z: 12, yaw: 0 }
+      if (room === 'lobby') return { x: 0, z: 17, yaw: 0 }
       const w = wings.find((x) => x.room === room)
-      if (!w) return { x: 0, z: 12, yaw: 0 }
-      const p = w.world(0, room === 'jardin' ? -38 : -33)
+      if (!w) return { x: 0, z: 17, yaw: 0 }
+      const p = w.world(0, room === 'jardin' ? -CORRIDOR_END - 8 : -CORRIDOR_END - 3)
       return { x: p.x, z: p.z, yaw: (w.k * Math.PI) / 4 }
     },
     tick(dt, t, here) {

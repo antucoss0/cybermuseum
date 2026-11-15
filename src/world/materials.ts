@@ -17,6 +17,8 @@ export const M = {
   neonWhite: new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffffff').multiplyScalar(1.4), toneMapped: false }),
   glass: new THREE.MeshBasicMaterial({ color: '#8a7cff', transparent: true, opacity: 0.07, depthWrite: false, side: THREE.DoubleSide }),
   black: new THREE.MeshBasicMaterial({ color: '#000000' }),
+  gold: new THREE.MeshStandardMaterial({ color: '#c9a86a', roughness: 0.28, metalness: 1, emissive: '#3a2a10', emissiveIntensity: 0.35 }),
+  coffer: new THREE.MeshStandardMaterial({ color: '#1d1830', roughness: 0.5, metalness: 0.55, emissive: '#120c26', emissiveIntensity: 0.6 }),
 }
 
 /** Checkerboard marble floor with animated lavender light waves driven by payments. */
@@ -46,12 +48,20 @@ export function floorMaterial(tile = 2, glowFrom = new THREE.Vector2(0, 0)) {
         float chk = mod(c.x + c.y, 2.0);
         vec2 f = fract(p);
         float vein = smoothstep(0.62, 0.0, abs(vnoise(vW.xz*0.9)*2.0-1.0 + vnoise(vW.xz*3.1)*0.3 - 0.15));
-        vec3 white = vec3(0.30,0.29,0.36) - vein*0.08;
+        vec3 white = vec3(0.075,0.07,0.1) - vein*0.025;
         vec3 black = vec3(0.012,0.01,0.02) + vein*0.03;
         vec3 col = mix(black, white, chk);
         float grout = 1.0 - smoothstep(0.0, 0.025, min(min(f.x,1.0-f.x), min(f.y,1.0-f.y)));
         col = mix(col, vec3(0.05,0.04,0.09), grout*0.8);
         float d = length(vW.xz - uCenter);
+        // obsidian glitter: tiny stars embedded in the stone
+        vec2 gq = floor(vW.xz*14.0);
+        float gh = hash(gq);
+        col += vec3(0.75,0.7,1.0) * step(0.996, gh) * (0.5 + 0.5*sin(uTime*3.0 + gh*80.0)) * 0.6;
+        // polished reflection of the cloud column (view dependent)
+        vec3 V = normalize(cameraPosition - vW);
+        float spec = pow(max(0.0, 1.0 - V.y), 3.0) * exp(-d*0.05);
+        col += uLav * spec * 0.05 * (1.0 + uEnergy*2.0);
         // fake reflection of the lights above
         float refl = exp(-d*0.12) * (0.12 + uEnergy*0.3);
         col += uLav * refl * mix(0.6, 0.15, chk);

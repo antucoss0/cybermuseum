@@ -18,11 +18,19 @@ export function createCloud(count: number) {
   const pos = new Float32Array(count * 3)
   const seed = new Float32Array(count * 4)
   const blobs = Array.from({ length: 7 }, (_, i) => ({
-    c: new THREE.Vector3(gauss() * 2.2, gauss() * 1.4, gauss() * 2.2),
+    c: new THREE.Vector3(gauss() * 1.3, gauss() * 1.1, gauss() * 1.3),
     s: new THREE.Vector3(1.4 + rng() * 1.8, 1 + rng() * 1.6, 1.4 + rng() * 1.8),
     k: i,
   }))
   for (let i = 0; i < count; i++) {
+    if (rng() < 0.16) {
+      // ascending column ("tube") linking altar and oculus
+      const a = rng() * Math.PI * 2
+      const r = 1.1 + Math.abs(gauss()) * 0.6
+      pos.set([Math.cos(a) * r, -7 + rng() * 22, Math.sin(a) * r], i * 3)
+      seed.set([rng(), rng(), rng(), 2], i * 4)
+      continue
+    }
     const shell = rng() < 0.18
     if (shell) {
       // orbital rings like the diamond-and-rings motif in the concept art
@@ -47,7 +55,7 @@ export function createCloud(count: number) {
     uEnergy: shared.energy,
     uPulse: { value: 0 },
     uPulseSeed: { value: 0 },
-    uSize: { value: Math.min(window.devicePixelRatio, 2) * 34 },
+    uSize: { value: Math.min(window.devicePixelRatio, 2) * 52 },
     uLav: shared.lavender,
   }
   const mat = new THREE.ShaderMaterial({
@@ -69,7 +77,12 @@ export function createCloud(count: number) {
         vec3 p = position;
         float t = uTime;
         float e = uEnergy;
-        if (aSeed.w > 0.5) {
+        if (aSeed.w > 1.5) {
+          p.y = mod(position.y + 7.0 + t*(1.2 + aSeed.x*1.5)*(1.0 + e*2.5), 22.0) - 7.0;
+          float a = t*(0.4 + aSeed.y*0.3) + p.y*0.35;
+          float c = cos(a), s = sin(a);
+          p.xz = mat2(c, -s, s, c) * p.xz * (1.0 + e*0.5 + 0.15*sin(p.y*0.8 - t*2.0));
+        } else if (aSeed.w > 0.5) {
           float a = t * (0.15 + aSeed.x*0.1) * (1.0 + e*2.0);
           float c = cos(a), s = sin(a);
           p.xz = mat2(c, -s, s, c) * p.xz;
@@ -94,14 +107,14 @@ export function createCloud(count: number) {
         vec3 white = vec3(1.0);
         vCol = mix(mix(lav, blue, aSeed.z), white, pow(aSeed.x, 6.0) + e*0.3 + wave);
         vCol = mix(vCol, vec3(1.0, 0.55, 0.95), e * 0.35 * aSeed.y);
-        vA = (0.35 + 0.65*aSeed.x) * (0.55 + e*0.8);
+        vA = (0.5 + 0.5*aSeed.x) * (0.75 + e*0.8);
       }`,
     fragmentShader: /* glsl */ `
       varying vec3 vCol; varying float vA;
       void main(){
         vec2 d = gl_PointCoord - 0.5;
         float g = exp(-dot(d,d)*18.0);
-        gl_FragColor = vec4(vCol * g * vA * 1.6, g * vA);
+        gl_FragColor = vec4(vCol * g * vA * 1.8, g * vA);
       }`,
   })
   const points = new THREE.Points(geo, mat)

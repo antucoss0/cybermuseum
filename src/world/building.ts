@@ -3,13 +3,13 @@ import * as THREE from 'three'
 import type { Content, RoomId } from '../content/types'
 import { paint } from '../core/gen2d'
 import { Nav } from './nav'
-import { M, floorMaterial, label } from './materials'
+import { M, floorMaterial, label, shared } from './materials'
 import { archOutline, archPath, candelabra, chandelier, column, spire, vault, wall, windowFill, type Opening } from './gothic'
 
-export const LOBBY_R = 20
-export const LOBBY_H = 14
+export const LOBBY_R = 26
+export const LOBBY_H = 18
 const SIDES = 16
-const CORRIDOR_END = 30
+export const CORRIDOR_END = 36
 
 export interface Interactable {
   id: string
@@ -47,12 +47,44 @@ export const WING_DEFS: { room: RoomId; k: number; W: number; L: number; rise?: 
 ]
 
 let nebulaTex: THREE.CanvasTexture | null = null
-function galaxyWindowMat() {
-  if (!nebulaTex) {
-    nebulaTex = new THREE.CanvasTexture(paint('nebula', 4242, 512))
-    nebulaTex.colorSpace = THREE.SRGBColorSpace
-  }
-  return new THREE.MeshBasicMaterial({ map: nebulaTex, toneMapped: false })
+let galaxyMat: THREE.ShaderMaterial | null = null
+/** Window view onto the outer universe: drifting, swirling nebula with pulsing stars. */
+export function galaxyWindowMat() {
+  if (galaxyMat) return galaxyMat
+  nebulaTex = new THREE.CanvasTexture(paint('nebula', 4242, 512))
+  nebulaTex.colorSpace = THREE.SRGBColorSpace
+  nebulaTex.wrapS = nebulaTex.wrapT = THREE.MirroredRepeatWrapping
+  galaxyMat = new THREE.ShaderMaterial({
+    uniforms: { uMap: { value: nebulaTex }, uTime: shared.time, uEnergy: shared.energy },
+    toneMapped: false,
+    vertexShader: /* glsl */ `varying vec2 vUv; varying vec3 vW; void main(){ vUv = uv; vec4 w = modelMatrix*vec4(position,1.0); vW = w.xyz; gl_Position = projectionMatrix*viewMatrix*w; }`,
+    fragmentShader: /* glsl */ `
+      uniform sampler2D uMap; uniform float uTime; uniform float uEnergy; varying vec2 vUv; varying vec3 vW;
+      float h(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
+      vec3 stars(vec2 uv, float sc, float sp){
+        vec2 g = uv*sc; vec2 id = floor(g); vec2 f = fract(g)-0.5;
+        float r = h(id); vec2 o = vec2(h(id+3.1), h(id+7.7))-0.5;
+        float d = length(f - o*0.7);
+        float tw = 0.5 + 0.5*sin(uTime*(1.5+r*4.0)*sp + r*40.0);
+        float s = smoothstep(0.06*r, 0.0, d) * step(0.72, r) * (0.3 + tw*1.4);
+        return mix(vec3(0.75,0.7,1.0), vec3(1.0,0.9,0.95), h(id+1.0)) * s;
+      }
+      void main(){
+        vec2 seed = vec2(vW.x*0.031 + vW.z*0.017, vW.y*0.02);
+        vec2 c = vUv - 0.5;
+        float a = uTime*0.03 + length(c)*1.6;
+        mat2 R = mat2(cos(a), -sin(a), sin(a), cos(a));
+        vec2 uv = R*c*0.8 + 0.5 + seed + vec2(uTime*0.004, 0.0);
+        vec3 neb = texture2D(uMap, uv).rgb;
+        neb += texture2D(uMap, uv*1.7 - seed*2.0 + uTime*0.006).rgb*0.45;
+        neb *= 0.75 + 0.25*sin(uTime*0.4 + seed.x*10.0) + uEnergy*0.8;
+        vec3 col = neb + stars(vUv + seed, 40.0, 1.0) + stars(vUv*1.3 + seed*2.0, 90.0, 1.7)*0.7;
+        float core = exp(-dot(c,c)*30.0) * (0.25 + 0.15*sin(uTime*0.7));
+        col += vec3(0.8,0.7,1.0)*core;
+        gl_FragColor = vec4(col, 1.0);
+      }`,
+  })
+  return galaxyMat
 }
 
 /** Gable end wall with pointed top (closes a vault of the same width/rise). */
@@ -199,7 +231,10 @@ export function buildLobby(root: THREE.Group, nav: Nav, content: Content) {
     { x: 0, y: 0, w: 5, h: 7.5 },
     { x: 0, y: 8.6, w: 3.6, h: 3.6, kind: 'round' },
   ])
-  const winGeo = wall(side + 0.02, LOBBY_H, 1, [{ x: 0, y: 2.2, w: 4, h: 10.2 }])
+  const winGeo = wall(side + 0.02, LOBBY_H, 1, [
+    { x: 0, y: 2.2, w: 4.6, h: 11.5 },
+    { x: 0, y: 14.4, w: 2.6, h: 2.6, kind: 'round' },
+  ])
   for (let i = 0; i < SIDES; i++) {
     const phi = (i * Math.PI * 2) / SIDES
     const dx = Math.sin(phi)
@@ -226,9 +261,18 @@ export function buildLobby(root: THREE.Group, nav: Nav, content: Content) {
       sign.scale.setScalar(0.85)
       panel.add(sign)
     } else {
-      const wf = windowFill(4, 10.2)
+      const wf = windowFill(4.6, 11.5)
       wf.position.set(0, 2.2, 0)
       panel.add(wf)
+      const view = new THREE.Mesh(new THREE.PlaneGeometry(4.8, 12), galaxyWindowMat())
+      view.position.set(0, 2.2 + 6, -0.9)
+      panel.add(view)
+      const ow = windowFill(2.6, 2.6, true)
+      ow.position.set(0, 14.4, 0)
+      panel.add(ow)
+      const ov = new THREE.Mesh(new THREE.CircleGeometry(1.35, 24), galaxyWindowMat())
+      ov.position.set(0, 15.7, -0.9)
+      panel.add(ov)
       const cand = candelabra()
       cand.position.set(0, 0, 1.7)
       panel.add(cand)
@@ -247,7 +291,7 @@ export function buildLobby(root: THREE.Group, nav: Nav, content: Content) {
     root.add(sp)
   }
   // galleries / LED bands
-  for (const y of [0.08, 7.9, LOBBY_H - 0.1]) {
+  for (const y of [0.08, 8.2, 13.6, LOBBY_H - 0.1]) {
     const ring = new THREE.Mesh(new THREE.TorusGeometry(apo / Math.cos(Math.PI / SIDES) - 0.75, 0.05, 6, SIDES), M.neon)
     ring.rotation.x = Math.PI / 2
     ring.rotation.z = Math.PI / SIDES
@@ -271,6 +315,45 @@ export function buildLobby(root: THREE.Group, nav: Nav, content: Content) {
     const rib = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, i % 2 ? 0.08 : 0.16, 5), i % 2 ? M.neonSoft : M.stoneLight)
     root.add(rib)
   }
+  // Renaissance coffers (lacunaria) on the inner shell, gilded edges catching the cloud light
+  {
+    const rows = 6
+    const per = SIDES * 2
+    const cof = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 0.35), M.stoneLight, rows * per)
+    const rim = new THREE.InstancedMesh(new THREE.TorusGeometry(0.62, 0.035, 4, 4), M.gold, rows * per)
+    const m = new THREE.Matrix4()
+    const q = new THREE.Quaternion()
+    const v = new THREE.Vector3()
+    const sc = new THREE.Vector3()
+    let n = 0
+    for (let j = 0; j < rows; j++) {
+      const th = (0.08 + (j / rows) * 0.74) * (Math.PI / 2)
+      const ring = Math.cos(th) * (domeR - 0.25)
+      const size = ((Math.PI * 2 * ring) / per) * 0.78
+      for (let i = 0; i < per; i++) {
+        const phi = ((i + (j % 2) * 0.5) / per) * Math.PI * 2
+        v.set(Math.sin(phi) * ring, LOBBY_H + Math.sin(th) * (domeR - 0.25) * domeY, -Math.cos(phi) * ring)
+        const look = new THREE.Matrix4().lookAt(v, new THREE.Vector3(0, LOBBY_H, 0), new THREE.Vector3(0, 1, 0))
+        q.setFromRotationMatrix(look)
+        sc.set(size, size * 0.9, 1)
+        m.compose(v, q, sc)
+        cof.setMatrixAt(n, m)
+        sc.set(size, size * 0.9, 1)
+        const rq = q.clone().multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI / 4))
+        m.compose(v.clone().multiplyScalar(0.995), rq, sc)
+        rim.setMatrixAt(n, m)
+        n++
+      }
+    }
+    cof.material = M.coffer
+    root.add(cof, rim)
+  }
+  for (const y of [LOBBY_H + 0.15, LOBBY_H + 0.55]) {
+    const g = new THREE.Mesh(new THREE.TorusGeometry(domeR - 0.1, 0.12, 6, 96), M.gold)
+    g.rotation.x = Math.PI / 2
+    g.position.y = y
+    root.add(g)
+  }
   for (const t of [0.35, 0.7]) {
     const rr = Math.cos(t * (Math.PI / 2)) * domeR
     const ring = new THREE.Mesh(new THREE.TorusGeometry(rr, 0.06, 5, 48), M.neonSoft)
@@ -283,7 +366,7 @@ export function buildLobby(root: THREE.Group, nav: Nav, content: Content) {
   oculus.rotation.x = Math.PI / 2
   oculus.position.y = oculusY
   root.add(oculus)
-  const top = spire(14, 1.4)
+  const top = spire(18, 1.8)
   top.position.y = oculusY + 0.5
   root.add(top)
 
@@ -300,19 +383,44 @@ export function buildLobby(root: THREE.Group, nav: Nav, content: Content) {
   ring2.rotation.x = Math.PI / 2
   ring2.position.y = 0.48
   altar.add(ring2)
+  const beam = new THREE.Mesh(
+    new THREE.CylinderGeometry(2.6, 3.4, oculusY, 48, 1, true),
+    new THREE.ShaderMaterial({
+      uniforms: { uTime: shared.time, uEnergy: shared.energy, uLav: shared.lavender },
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      toneMapped: false,
+      vertexShader: /* glsl */ `varying vec2 vUv; varying vec3 vN; varying vec3 vV; void main(){ vUv=uv; vN=normalize(normalMatrix*normal); vec4 mv=modelViewMatrix*vec4(position,1.0); vV=normalize(-mv.xyz); gl_Position=projectionMatrix*mv; }`,
+      fragmentShader: /* glsl */ `uniform float uTime; uniform float uEnergy; uniform vec3 uLav; varying vec2 vUv; varying vec3 vN; varying vec3 vV;
+        void main(){
+          float edge = pow(1.0 - abs(dot(vN, vV)), 2.0);
+          float streak = 0.5 + 0.5*sin(vUv.x*60.0 + vUv.y*8.0 - uTime*1.2);
+          float flow = 0.5 + 0.5*sin(vUv.y*24.0 - uTime*3.0*(1.0+uEnergy));
+          float fade = smoothstep(0.0, 0.08, vUv.y) * (1.0 - smoothstep(0.85, 1.0, vUv.y));
+          float a = (edge*0.55 + streak*flow*0.12) * fade * (0.8 + uEnergy*1.2);
+          gl_FragColor = vec4(mix(uLav, vec3(1.0), 0.25+uEnergy*0.3) * a, a);
+        }`,
+    }),
+  )
+  beam.position.y = oculusY / 2
+  beam.renderOrder = 2
+  altar.add(beam)
   root.add(altar)
   nav.obstacle(0, 0, 3.7)
 
   const chandeliers: THREE.Group[] = []
-  for (let i = 0; i < 4; i++) {
-    const a = (i / 4) * Math.PI * 2 + Math.PI / 4
-    const ch = chandelier(2.2, 18)
-    ch.position.set(Math.cos(a) * 11.5, 10.5, Math.sin(a) * 11.5)
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2 + Math.PI / 8
+    const ch = chandelier(i % 2 ? 1.8 : 2.4, i % 2 ? 14 : 20)
+    ch.position.set(Math.cos(a) * 17, i % 2 ? 13.5 : 12.5, Math.sin(a) * 17)
     root.add(ch)
     chandeliers.push(ch)
   }
   const title = label('Cyber Museum', 'art · technology · eternity', 9)
-  title.position.set(0, 12.2, 0)
+  title.position.set(0, LOBBY_H + 7, 0)
+  title.scale.setScalar(1.8)
   title.userData.billboard = true
   root.add(title)
   return { chandeliers, altar, title }

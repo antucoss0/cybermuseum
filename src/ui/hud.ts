@@ -1,3 +1,4 @@
+import { audio } from '../core/audio'
 import { L, tx, txList, langButton, bindLang } from '../core/i18n'
 import QRCode from 'qrcode'
 import type { Artwork, GameDoor, Product, RoomId } from '../content/types'
@@ -13,6 +14,8 @@ export const ROOM_ORDER: RoomId[] = ['lobby', 'videosala', 'escultura', 'pintura
 export class Hud {
   el: HTMLElement
   teleport = new Emitter<RoomId>()
+  roomChange = new Emitter<RoomId>()
+  xrEnter = new Emitter<'immersive-vr' | 'immersive-ar'>()
   chatSend = new Emitter<string>()
   act = new Emitter<void>()
   modalOpen = false
@@ -34,9 +37,10 @@ export class Hud {
     this.el.innerHTML = `
       <div class="tl"><a class="brand glass" href="#" data-home><span class="glyph star">✦</span><b>CYBER MUSEUM</b></a><div class="loc glass">${L('Estás en', 'You are in')}<b>Lobby</b></div></div>
       <div class="energy glass">${L('NUBE', 'CLOUD')}<div class="meter"><i></i></div></div>
-      <div class="tr"><div class="online glass off"><i></i><span>solo</span></div>${langButton('icon-btn glass')}<button class="icon-btn glass" data-chat title="Chat">✎</button><button class="icon-btn glass" data-menu title="${L('Menú', 'Menu')}">☰</button></div>
+      <div class="tr"><div class="online glass off"><i></i><span>solo</span></div>${langButton('icon-btn glass')}<button class="icon-btn glass" data-sound title="${L('Sonido', 'Sound')}">♪</button><button class="icon-btn glass hidden" data-vr title="VR">VR</button><button class="icon-btn glass hidden" data-ar title="AR">AR</button><button class="icon-btn glass" data-chat title="Chat">✎</button><button class="icon-btn glass" data-menu title="${L('Menú', 'Menu')}">☰</button></div>
       <div class="ticker"></div>
       <div class="prompt glass hidden"><kbd>E</kbd><span></span></div>
+      <div class="portal"><i></i><i></i><i></i><div><span class="kicker"></span><h2 class="serif"></h2></div></div>
       <div class="toast" style="opacity:0"><span class="kicker"></span><h2 class="serif"></h2></div>
       <div class="br"><button class="btn glass sm" data-shop>${L('Tienda', 'Shop')}</button><button class="btn primary sm" data-donate>${L('Apoyar', 'Support')} ♡</button></div>
       <div class="chat glass hidden"><div class="log"></div><form><input maxlength="140" placeholder="${L('Escribe a los demás visitantes…', 'Write to the other visitors…')}"><button class="btn sm">↵</button></form></div>
@@ -59,6 +63,12 @@ export class Hud {
     q('[data-menu]').onclick = () => this.toggleDrawer()
     q('[data-home]').onclick = (e) => (e.preventDefault(), this.teleport.emit('lobby'))
     q('[data-chat]').onclick = () => this.toggleChat()
+    const snd = q('[data-sound]')
+    const syncSnd = () => snd.classList.toggle('off', audio.muted)
+    syncSnd()
+    snd.onclick = () => (audio.unlock(), audio.setMuted(!audio.muted), syncSnd())
+    q('[data-vr]').onclick = () => this.xrEnter.emit('immersive-vr')
+    q('[data-ar]').onclick = () => this.xrEnter.emit('immersive-ar')
     q('[data-shop]').onclick = () => this.openShop()
     q('[data-donate]').onclick = () => this.openPay(100, L('Donación al museo', 'Donation to the museum'), 'donacion')
     this.prompt.onclick = () => this.act.emit()
@@ -95,8 +105,24 @@ export class Hud {
     const r = content.data.rooms[id]
     const name = id === 'futuro' ? content.data.settings.futureName : tx(r, 'name')
     this.loc.textContent = name
-    this.toast(tx(r, 'subtitle'), name)
+    this.portal(tx(r, 'subtitle'), name)
+    this.roomChange.emit(id)
     this.renderDrawer()
+  }
+
+  showXR(vr: boolean, ar: boolean) {
+    this.el.querySelector('[data-vr]')!.classList.toggle('hidden', !vr)
+    this.el.querySelector('[data-ar]')!.classList.toggle('hidden', !ar)
+  }
+
+  /** Full-screen portal transition used when crossing into another hall. */
+  portal(kicker: string, title: string) {
+    const p = this.el.querySelector('.portal') as HTMLElement
+    ;(p.querySelector('.kicker') as HTMLElement).textContent = kicker
+    ;(p.querySelector('h2') as HTMLElement).textContent = title
+    p.classList.remove('go')
+    void p.offsetWidth
+    p.classList.add('go')
   }
 
   setOnline(n: number, on: boolean) {

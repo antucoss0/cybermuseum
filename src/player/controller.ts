@@ -6,11 +6,11 @@ import type { Avatar } from './avatar'
 
 export class Controller {
   x = 0
-  z = 12
+  z = 17
   y = 0
   yaw = 0
   camYaw = 0
-  camPitch = 0.16
+  camPitch = 0.04
   camDist = 6
   speed = 0
   room: RoomId = 'lobby'

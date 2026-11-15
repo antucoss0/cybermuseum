@@ -23,12 +23,18 @@ import { intro, landing, selectCharacter } from './ui/landing'
 import { playGame } from './ui/games'
 import { Multi } from './net/multi'
 import { openAdmin } from './admin/admin'
+import { audio } from './core/audio'
+import { XR } from './core/xr'
 
 const params = new URLSearchParams(location.search)
 const quality = (params.get('q') as 'low' | 'mid' | 'high') || detectQuality()
 const ui = document.getElementById('ui')!
 const engine = new Engine(document.getElementById('gl') as HTMLCanvasElement, quality)
 const { scene, camera } = engine
+const xr = new XR(engine)
+const unlockAudio = () => audio.unlock()
+addEventListener('pointerdown', unlockAudio)
+addEventListener('keydown', unlockAudio)
 
 const pmrem = new THREE.PMREMGenerator(engine.renderer)
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
@@ -39,10 +45,11 @@ sky.setPalette(content.data.settings.palette)
 scene.add(sky.mesh)
 scene.add(new THREE.HemisphereLight('#8b7bd6', '#0a0812', 0.3))
 const cloudLight = new THREE.PointLight('#b89cff', 140, 0, 1.5)
-cloudLight.position.set(0, 8, 0)
+cloudLight.position.set(0, 10.5, 0)
 scene.add(cloudLight)
-const cloud = createCloud(quality === 'low' ? 9000 : quality === 'mid' ? 18000 : 32000)
-cloud.points.position.set(0, 8.2, 0)
+const cloud = createCloud(quality === 'low' ? 14000 : quality === 'mid' ? 30000 : 56000)
+cloud.points.position.set(0, 9, 0)
+cloud.points.scale.setScalar(1.55)
 scene.add(cloud.points)
 
 let hud: Hud | null = null
@@ -102,6 +109,7 @@ function react(p: PaymentEvent, fresh = true) {
 }
 payments.received.on((p) => {
   react(p)
+  audio.chime(p.amount)
   multi.broadcastPayment(p)
 })
 multi.payment.on((p) => payments.ingest(p))
@@ -172,13 +180,20 @@ engine.onTick((dt, t) => {
   sky.uniforms.uEnergy.value = Math.min(1, energy)
   shared.lavender.value.copy(baseLav).lerp(hot, Math.min(1, energy * 0.8))
   cloudLight.color.copy(shared.lavender.value)
-  cloudLight.intensity = 60 + Math.min(1, energy) * 110
+  cloudLight.intensity = 110 + Math.min(1, energy) * 180
   engine.bloom.strength = (quality === 'low' ? 0.6 : 0.75) + Math.min(1, energy) * 0.3
   cloud.update(dt)
   cloud.points.rotation.y = t * 0.03
   world.chandeliers.forEach((c, i) => (c.rotation.y = t * 0.05 * (i % 2 ? 1 : -1)))
   world.title.lookAt(camera.position.x, world.title.position.y, camera.position.z)
   hud?.setEnergy(energy)
+  if (portalKick > 0 && !xr.mode) {
+    portalKick = Math.max(0, portalKick - dt * 1.2)
+    const k = Math.sin(portalKick * Math.PI)
+    camera.fov = (innerWidth < innerHeight ? 72 : 62) + k * 22
+    camera.updateProjectionMatrix()
+    engine.bloom.strength += k * 0.8
+  }
 
   if (mode === 'landing') {
     const a = landingP * Math.PI * 2 + t * 0.03
@@ -190,9 +205,22 @@ engine.onTick((dt, t) => {
     return
   }
   if (!controller || !hud) return
-  controller.joy = hud.joy
   controller.enabled = !hud.modalOpen
+  if (xr.mode) {
+    xr.poll(dt)
+    controller.joy = { x: xr.axes.x, y: xr.axes.y }
+    if (xr.mode === 'immersive-vr') controller.camYaw = xr.headYaw()
+  } else controller.joy = hud.joy
   controller.update(dt, t)
+  if (xr.mode === 'immersive-vr') {
+    engine.rig.position.set(controller.x, controller.y, controller.z)
+    controller.avatar.group.visible = false
+  } else if (xr.mode === 'immersive-ar') {
+    const s = 40
+    engine.rig.scale.setScalar(s)
+    engine.rig.position.set(0, -0.8 * s, 1.2 * s)
+  } else controller.avatar.group.visible = true
+  audio.tick(dt, controller.speed, me?.kind === 'astral')
   hud.setRoom(controller.room)
   world.tick(dt, t, controller.room)
   // nearest interactable
@@ -218,6 +246,8 @@ engine.onTick((dt, t) => {
   }
 })
 let nearest: World['interactables'][number] | null = null
+let portalKick = 0
+const bg = scene.background
 
 async function enterMuseum(profile: { kind: AvatarKind; name: string }) {
   me = profile
@@ -228,7 +258,24 @@ async function enterMuseum(profile: { kind: AvatarKind; name: string }) {
   hud = new Hud(ui)
   hud.playerName = profile.name
   hud.act.on(() => nearest?.action())
-  hud.teleport.on((r) => place(r))
+  hud.teleport.on((r) => {
+    hud!.portal(L('Viajando a', 'Travelling to'), r)
+    audio.whoosh()
+    setTimeout(() => place(r), 380)
+  })
+  hud.roomChange.on((r) => {
+    audio.setRoom(r)
+    audio.whoosh()
+    portalKick = 1
+  })
+  xr.detect().then((s) => hud?.showXR(s['immersive-vr'], s['immersive-ar']))
+  xr.onChange = (m) => {
+    sky.mesh.visible = m !== 'immersive-ar'
+    scene.background = m === 'immersive-ar' ? null : bg
+    document.body.classList.toggle('xr-ar', m === 'immersive-ar')
+  }
+  hud.xrEnter.on((m) => xr.enter(m).catch((e) => hud?.toast('XR', String(e.message ?? e))))
+  audio.setRoom(controller.room)
   hud.chatSend.on((text) => {
     hud!.chat(profile.name, text)
     multi.say(text)
@@ -284,6 +331,9 @@ boot()
 // test / debug handle
 Object.assign(window, {
   __cm: {
+    get controller() {
+      return controller
+    },
     get state() {
       return { mode, room: controller?.room, x: controller?.x, z: controller?.z, y: controller?.y, energy, fps: engine.fps, peers: peers.size, me }
     },
