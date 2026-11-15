@@ -1,5 +1,9 @@
 # Cyber Museum
 
+**Live:** https://cyber-museum.vercel.app · [English](https://cyber-museum.vercel.app/?lang=en) · SuperAdmin: `#admin` (PIN 4444)
+
+Payments run in **demo mode** until `PEY_API_KEY` is set on the server (Vercel env var); the `/api` pey integration (`checkout`, `status`, `transactions`, `feed`, `webhook`) switches on automatically.
+
 **Arte · Tecnología · Eternidad.** Un museo digital 3D persistente y multijugador que se recorre en el navegador como un videojuego. Es una catedral neogótica futurista que flota en un universo de galaxias. Un estudio de **Ethercoded**.
 
 ## Qué hay dentro

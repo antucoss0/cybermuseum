@@ -27,12 +27,68 @@ const library = () =>
   (lib ??= loadGLB('Xbot.glb').then((g) =>
     g.animations.map((c) => {
       const k = c.clone()
-      k.tracks = k.tracks.filter((t) => !t.name.endsWith('.position'))
+      k.tracks = k.tracks.filter((t) => !t.name.endsWith('.position') && !/Eye\./.test(t.name))
       return k
     }),
   ))
 
-const astralMat = new THREE.MeshPhysicalMaterial({ color: '#cbb8ff', metalness: 0.85, roughness: 0.18, clearcoat: 1, iridescence: 1, emissive: '#5b3bb8', emissiveIntensity: 0.55 })
+const astralMat = new THREE.MeshPhysicalMaterial({ color: '#cbb8ff', metalness: 0.85, roughness: 0.18, clearcoat: 1, iridescence: 1, emissive: '#7b5bff', emissiveIntensity: 1.2 })
+// Temporary aesthetic skins until the definitive characters arrive.
+const oracleMat = new THREE.MeshPhysicalMaterial({ color: '#3a2c5c', metalness: 0.35, roughness: 0.32, sheen: 1, sheenColor: '#c9b3ff', sheenRoughness: 0.35, iridescence: 0.6, clearcoat: 0.6, emissive: '#2a1660', emissiveIntensity: 0.35 })
+const sentinelMat = new THREE.MeshPhysicalMaterial({ color: '#c9a86a', metalness: 0.95, roughness: 0.3, clearcoat: 0.8, emissive: '#2a1a08', emissiveIntensity: 0.4 })
+
+let stars: THREE.Texture | null = null
+function starMap() {
+  if (stars) return stars
+  const c = document.createElement('canvas')
+  c.width = c.height = 256
+  const g = c.getContext('2d')!
+  g.fillStyle = '#05030c'
+  g.fillRect(0, 0, 256, 256)
+  for (let i = 0; i < 380; i++) {
+    const r = Math.random() ** 4 * 1.8 + 0.3
+    g.fillStyle = `rgba(255,255,255,${0.4 + Math.random() * 0.6})`
+    g.beginPath()
+    g.arc(Math.random() * 256, Math.random() * 256, r, 0, Math.PI * 2)
+    g.fill()
+  }
+  stars = new THREE.CanvasTexture(c)
+  stars.colorSpace = THREE.SRGBColorSpace
+  return stars
+}
+
+/** Floating halo / visor / orbiting motes that give each temporary avatar its identity. */
+function accessory(kind: AvatarKind, h: number) {
+  const g = new THREE.Group()
+  const neon = new THREE.MeshBasicMaterial({ color: new THREE.Color('#c9b3ff').multiplyScalar(1.6), toneMapped: false })
+  const gold = new THREE.MeshStandardMaterial({ color: '#c9a86a', metalness: 1, roughness: 0.25, emissive: '#3a2a10', emissiveIntensity: 0.6 })
+  if (kind === 'oraculo') {
+    const halo = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.012, 6, 48), gold)
+    const inner = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.005, 4, 48), neon)
+    halo.add(inner)
+    halo.position.set(0, h * 0.95, 0.1)
+    g.add(halo)
+  } else if (kind === 'centinela') {
+    const visor = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.008, 4, 40), neon)
+    visor.rotation.x = Math.PI / 2
+    visor.position.y = h * 0.93
+    const base = new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.01, 4, 64), neon)
+    base.rotation.x = Math.PI / 2
+    base.position.y = 0.03
+    g.add(visor, base)
+  } else {
+    const pts = new Float32Array(90 * 3)
+    for (let i = 0; i < 90; i++) {
+      const a = Math.random() * Math.PI * 2
+      const r = 0.35 + Math.random() * 0.25
+      pts.set([Math.cos(a) * r, Math.random() * h, Math.sin(a) * r], i * 3)
+    }
+    const geo = new THREE.BufferGeometry()
+    geo.setAttribute('position', new THREE.BufferAttribute(pts, 3))
+    g.add(new THREE.Points(geo, new THREE.PointsMaterial({ color: '#d9ccff', size: 0.025, transparent: true, opacity: 0.85, depthWrite: false, toneMapped: false })))
+  }
+  return g
+}
 
 function fitHeight(obj: THREE.Object3D, h: number) {
   obj.updateMatrixWorld(true)
@@ -51,16 +107,29 @@ export async function loadRig(kind: AvatarKind, tint?: string): Promise<Rig> {
     const m = o as THREE.Mesh
     if (!m.isMesh) return
     m.frustumCulled = false
+    const src = m.material as THREE.MeshStandardMaterial
     if (kind === 'astral') {
       const mat = astralMat.clone()
-      if (tint) mat.emissive = new THREE.Color(tint).multiplyScalar(0.5)
+      mat.emissiveMap = starMap()
+      if (tint) mat.emissive = new THREE.Color(tint).multiplyScalar(0.7)
+      m.material = mat
+    } else if (kind === 'oraculo') {
+      const mat = oracleMat.clone()
+      mat.map = src.map ?? null
+      if (tint) mat.sheenColor = new THREE.Color(tint)
+      m.material = mat
+    } else {
+      const mat = sentinelMat.clone()
+      mat.map = src.map ?? null
+      mat.normalMap = src.normalMap ?? null
       m.material = mat
     }
   })
   model.rotation.y = def.yaw ?? 0
   fitHeight(model, def.height)
   const root = new THREE.Group()
-  root.add(model)
+  const aura = accessory(kind, def.height)
+  root.add(model, aura)
   const mixer = new THREE.AnimationMixer(model)
   const foreign = def.file !== 'Xbot.glb'
   const source = foreign ? (await loadGLB('Xbot.glb')).scene : null
@@ -135,6 +204,7 @@ export async function loadRig(kind: AvatarKind, tint?: string): Promise<Rig> {
       if (walk) walk.timeScale = THREE.MathUtils.clamp(speed / 1.9, 0.7, 1.5)
       pres?.setEffectiveWeight(pw)
       if (def.float) root.position.y = def.float + Math.sin(t * 1.8) * 0.05
+      aura.rotation.y = t * (kind === 'astral' ? 0.6 : 0.25)
       mixer.update(dt)
     },
   }
