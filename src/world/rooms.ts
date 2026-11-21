@@ -786,6 +786,7 @@ const builders: Partial<Record<RoomId, Builder>> = {
     }
     flags.instanceMatrix.needsUpdate = true
     w.group.add(flags)
+    const trunkMat = new THREE.MeshStandardMaterial({ color: '#2b2130', metalness: 0.05, roughness: 0.95 })
     const hedgeMat = new THREE.MeshStandardMaterial({ color: '#18261c', roughness: 0.95 })
     for (let i = 0; i < 28; i++) {
       const a = (i / 28) * Math.PI * 2
