@@ -1,7 +1,7 @@
 import { L, tx } from '../core/i18n'
 import * as THREE from 'three'
 import type { Artwork, Content, GameDoor, Product, RoomId } from '../content/types'
-import { mulberry32 } from '../core/util'
+import { detectQuality, mulberry32 } from '../core/util'
 import type { PaymentEvent } from '../payments/bus'
 import { M, label, shared } from './materials'
 import { P, pbr } from './pbr'
@@ -800,6 +800,7 @@ const builders: Partial<Record<RoomId, Builder>> = {
     w.obstacle(0, cz, 4.7)
     add({ id: 'garden', pos: w.world(0, cz + 6), r: 2.4, label: L('Plantar una flor (apoyar al jardín)', 'Plant a flower (support the garden)'), room: w.room, action: () => hooks.donate() })
     const rng = mulberry32(99)
+    const lowQuality = detectQuality() === 'low'
     const gardenPaths = [
       new THREE.CatmullRomCurve3([
         new THREE.Vector3(0, 0, z0 - 2),
@@ -864,7 +865,52 @@ const builders: Partial<Record<RoomId, Builder>> = {
     treeTrunks.instanceMatrix.needsUpdate = true
     treeCanopies.instanceMatrix.needsUpdate = true
     treeCrowns.instanceMatrix.needsUpdate = true
+    treeTrunks.frustumCulled = true
+    treeCanopies.frustumCulled = true
+    treeCrowns.frustumCulled = true
     w.group.add(treeTrunks, treeCanopies, treeCrowns)
+    const grassCount = lowQuality ? 450 : 900
+    const grassRng = mulberry32(927)
+    const grassGeometry = new THREE.BufferGeometry()
+    grassGeometry.setAttribute('position', new THREE.Float32BufferAttribute([
+      -0.08, 0, 0, 0, 0.54, 0, 0.08, 0, 0,
+      0, 0, -0.08, 0, 0.44, 0, 0, 0, 0.08,
+      -0.07, 0, 0.06, 0, 0.38, -0.05, 0.07, 0, 0.06,
+    ], 3))
+    grassGeometry.setIndex([0, 1, 2, 3, 4, 5, 6, 7, 8])
+    grassGeometry.computeVertexNormals()
+    const grassMaterial = new THREE.MeshStandardMaterial({ color: '#617b4b', roughness: 1, side: THREE.DoubleSide })
+    const grassBatches = new Map<number, THREE.Matrix4[]>()
+    const grassTransform = new THREE.Object3D()
+    for (let i = 0; i < grassCount; i++) {
+      const pathIndex = i % gardenPaths.length
+      const path = gardenPaths[pathIndex]
+      const t = grassRng()
+      const point = path.getPointAt(t)
+      const tangent = path.getTangentAt(t)
+      const side = i % 2 ? 1 : -1
+      const offset = side * (0.65 + grassRng() * 2.5)
+      const along = (grassRng() - 0.5) * 1.6
+      const lx = point.x + tangent.z * offset + tangent.x * along
+      const lz = point.z - tangent.x * offset + tangent.z * along
+      grassTransform.position.set(lx, w.floorY + 0.012, lz)
+      grassTransform.rotation.y = grassRng() * Math.PI
+      const scale = 0.7 + grassRng() * 0.8
+      grassTransform.scale.set(scale, scale * (0.65 + grassRng() * 0.55), scale)
+      grassTransform.updateMatrix()
+      const chunk = pathIndex * 4 + Math.min(3, Math.floor(t * 4))
+      const batch = grassBatches.get(chunk) ?? []
+      batch.push(grassTransform.matrix.clone())
+      grassBatches.set(chunk, batch)
+    }
+    for (const matrices of grassBatches.values()) {
+      const grass = new THREE.InstancedMesh(grassGeometry, grassMaterial, matrices.length)
+      matrices.forEach((matrix, i) => grass.setMatrixAt(i, matrix))
+      grass.instanceMatrix.needsUpdate = true
+      grass.frustumCulled = true
+      grass.computeBoundingSphere()
+      w.group.add(grass)
+    }
     for (let i = 0; i < 28; i++) {
       const a = (i / 28) * Math.PI * 2
       const lx = Math.cos(a) * (R + 0.5)
@@ -890,50 +936,96 @@ const builders: Partial<Record<RoomId, Builder>> = {
           return fit(model.scene.clone(), sizes[i])
         })
         prefabs.push(...prototypes.map((p) => p.clone()))
+        const plantRng = mulberry32(219)
+        const plantCount = lowQuality ? 60 : 120
+        const potCount = lowQuality ? 1 : 2
+        const clusterCount = lowQuality ? 12 : 20
+        w.group.userData.gardenPlantInstances = plantCount * 4 + potCount
+        w.group.userData.gardenGrassTufts = grassCount
+        const bedCenters = Array.from({ length: 20 }, (_, i) => {
+          const angle = (i / 20) * Math.PI * 2 + 0.12
+          const radius = 10 + (0.5 + 0.5 * Math.sin(i * 2.3)) * 7.5
+          return { x: Math.cos(angle) * radius, z: cz + Math.sin(angle) * radius }
+        })
+        const flowerClumps: number[] = []
+        let remainingFlowers = plantCount
+        while (remainingFlowers > 0) {
+          let size = remainingFlowers <= 12 ? remainingFlowers : 5 + Math.floor(plantRng() * 8)
+          if (remainingFlowers - size > 0 && remainingFlowers - size < 5) size = remainingFlowers - 5
+          flowerClumps.push(size)
+          remainingFlowers -= size
+        }
+        const flowerSites: { x: number; z: number }[] = []
+        for (let i = 0; i < flowerClumps.length; i++) {
+          const pathIndex = i % gardenPaths.length
+          const path = gardenPaths[pathIndex]
+          const lane = Math.floor(i / gardenPaths.length)
+          const laneCount = Math.ceil(flowerClumps.length / gardenPaths.length)
+          const t = 0.08 + ((lane + 0.5) / laneCount) * 0.84
+          const point = path.getPointAt(t)
+          const tangent = path.getTangentAt(t)
+          const side = lane % 2 ? 1 : -1
+          const centerX = point.x + tangent.z * side * (1.6 + plantRng() * 1.2)
+          const centerZ = point.z - tangent.x * side * (1.6 + plantRng() * 1.2)
+          for (let j = 0; j < flowerClumps[i]; j++) {
+            const noise = Math.sin((centerX + centerZ) * 0.45 + j * 1.7) * 0.2
+            const along = (plantRng() + plantRng() - 1) * 0.9
+            const across = (plantRng() + plantRng() - 1) * (0.55 + noise)
+            flowerSites.push({
+              x: centerX + tangent.x * along + tangent.z * across,
+              z: centerZ + tangent.z * along - tangent.x * across,
+            })
+          }
+        }
         prototypes.forEach((prototype, variant) => {
           prototype.updateMatrixWorld(true)
-          const placements: THREE.Matrix4[] = []
-          const count = variant === 2 ? 8 : 52
+          const batches = new Map<string, THREE.Matrix4[]>()
+          const count = variant === 2 ? potCount : plantCount
           for (let i = 0; i < count; i++) {
-            const cluster = i % 10
-            const a = (cluster / 10) * Math.PI * 2 + (rng() - 0.5) * 0.5
-            const r = 6.6 + rng() * 8.4
-            let lx = Math.cos(a) * r
-            let lz = cz + Math.sin(a) * r
-            let scale = variant === 2 ? 0.5 + rng() * 0.25 : 0.88 + rng() * 0.55
-            if (variant === 1 && i < 8) {
-              lx = (i % 2 ? 1 : -1) * 4.1
-              lz = z0 - 5 - Math.floor(i / 2) * 1.45
-              scale = 0.42 + rng() * 0.12
-            } else if (variant === 1 && i < 12) {
-              const treeAngle = ((i - 8) / 4) * Math.PI * 2 + 0.4
-              lx = Math.cos(treeAngle) * 17
-              lz = cz + Math.sin(treeAngle) * 17
-              scale = 1.7 + rng() * 0.35
+            let lx: number
+            let lz: number
+            let scale: number
+            if (variant === 2) {
+              const side = i % 2 ? 1 : -1
+              lx = side * 5.2
+              lz = z0 - 6.8
+              scale = 0.42 + plantRng() * 0.12
             } else if (variant === 3) {
-              const path = gardenPaths[i % gardenPaths.length]
-              const point = path.getPointAt(((i % 26) + 0.5) / 26)
-              const tangent = path.getTangentAt(((i % 26) + 0.5) / 26)
-              const offset = (i % 2 ? 1 : -1) * (1.1 + rng() * 1.4)
-              lx = point.x + tangent.z * offset
-              lz = point.z - tangent.x * offset
-              scale = 0.55 + rng() * 0.45
+              lx = flowerSites[i].x
+              lz = flowerSites[i].z
+              scale = 0.55 + plantRng() * 0.45
+            } else {
+              const center = bedCenters[i % clusterCount]
+              const field = Math.sin(center.x * 0.31 + center.z * 0.17) * Math.cos(center.x * 0.19 - center.z * 0.27)
+              const spread = 1.25 + (field + 1) * 0.45
+              lx = center.x + (plantRng() + plantRng() - 1) * spread
+              lz = center.z + (plantRng() + plantRng() - 1) * spread
+              scale = 0.82 + plantRng() * 0.55
             }
             const placement = new THREE.Object3D()
             placement.position.set(lx, w.floorY, lz)
-            placement.rotation.y = a + rng()
+            placement.rotation.y = plantRng() * Math.PI * 2
             placement.scale.setScalar(scale)
             placement.updateMatrix()
-            placements.push(placement.matrix.clone())
+            const cellX = Math.floor((lx + 24) / 12)
+            const cellZ = Math.floor((lz - (cz - 24)) / 12)
+            const key = `${cellX}:${cellZ}`
+            const batch = batches.get(key) ?? []
+            batch.push(placement.matrix.clone())
+            batches.set(key, batch)
             w.obstacle(lx, lz, variant === 2 ? 0.35 : 0.5)
           }
           prototype.traverse((object) => {
             const mesh = object as THREE.Mesh
             if (!mesh.isMesh) return
-            const instances = new THREE.InstancedMesh(mesh.geometry, mesh.material, placements.length)
-            placements.forEach((placement, i) => instances.setMatrixAt(i, placement.clone().multiply(mesh.matrixWorld)))
-            instances.instanceMatrix.needsUpdate = true
-            w.group.add(instances)
+            for (const placements of batches.values()) {
+              const instances = new THREE.InstancedMesh(mesh.geometry, mesh.material, placements.length)
+              placements.forEach((placement, i) => instances.setMatrixAt(i, placement.clone().multiply(mesh.matrixWorld)))
+              instances.instanceMatrix.needsUpdate = true
+              instances.frustumCulled = true
+              instances.computeBoundingSphere()
+              w.group.add(instances)
+            }
           })
         })
         for (let i = 0; i < 6; i++) {

@@ -24,10 +24,31 @@ export function buildExtras(root: THREE.Group, nav: Nav, c: Content, wings: Wing
   let forumGroup: THREE.Group | null = null
   if (gw) {
     const gz = -CORRIDOR_END - 22
-    gw.rect(0, gz - 25, 2.2, 4)
-    const path = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.3, 8), P.stoneCarved)
-    path.position.copy(gw.world(0, gz - 25, -0.15)).sub(gw.group.position)
+    const approachZ = gz - 35
+    gw.rect(0, approachZ, 2.2, 15)
+    const path = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.3, 30), P.stoneCarved)
+    path.position.set(0, -0.15, approachZ)
     gw.group.add(path)
+    const hedgeRows = new THREE.InstancedMesh(
+      new THREE.BoxGeometry(0.75, 1.1, 4.2),
+      new THREE.MeshStandardMaterial({ color: '#1d2e20', roughness: 0.96 }),
+      12,
+    )
+    const hedgeTransform = new THREE.Object3D()
+    let hedgeIndex = 0
+    for (const side of [-1, 1]) {
+      for (let i = 0; i < 6; i++) {
+        const z = gz - 21 - i * 4.2
+        hedgeTransform.position.set(side * 3.15, 0.55, z)
+        hedgeTransform.updateMatrix()
+        hedgeRows.setMatrixAt(hedgeIndex++, hedgeTransform.matrix)
+        gw.obstacle(side * 3.15, z, 0.95)
+      }
+    }
+    hedgeRows.instanceMatrix.needsUpdate = true
+    hedgeRows.frustumCulled = true
+    hedgeRows.computeBoundingSphere()
+    gw.group.add(hedgeRows)
     const ctr = gw.world(0, gz - 45)
     const ang = (gw.k * Math.PI) / 4
     const g = new THREE.Group()
