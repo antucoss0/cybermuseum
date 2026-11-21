@@ -48,7 +48,7 @@ pmrem.compileEquirectangularShader()
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
 scene.environmentIntensity = 0.5
 new RGBELoader().load(
-  '/env/night.hdr',
+  import.meta.env.BASE_URL + 'env/night.hdr',
   (hdr) => {
     scene.environment = pmrem.fromEquirectangular(hdr).texture
     hdr.dispose()

@@ -20,7 +20,7 @@ function texture(slug: string, channel: 'diff' | 'nor' | 'rough', repeat: [numbe
   const key = `${slug}/${channel}/${repeat[0]}x${repeat[1]}`
   let map = textures.get(key)
   if (!map) {
-    map = loader.load(`/tex/${slug}/${channel}.jpg`)
+    map = loader.load(import.meta.env.BASE_URL + `tex/${slug}/${channel}.jpg`)
     map.wrapS = map.wrapT = THREE.RepeatWrapping
     map.repeat.set(...repeat)
     map.colorSpace = channel === 'diff' ? THREE.SRGBColorSpace : THREE.NoColorSpace
