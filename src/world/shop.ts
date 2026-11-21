@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import type { Content } from '../content/types'
-import { shared } from './materials'
+import { M, shared } from './materials'
 import type { Wing } from './building'
 import { CORRIDOR_END } from './building'
 
@@ -33,7 +33,7 @@ function shirt(color: string, print: string) {
   const logo = new THREE.Mesh(new THREE.CircleGeometry(0.16, 6), new THREE.MeshBasicMaterial({ color: print, toneMapped: false }))
   logo.position.set(0, -0.42, 0.07)
   m.add(logo)
-  const hanger = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.012, 4, 16, Math.PI), new THREE.MeshStandardMaterial({ color: '#d9d4e8', metalness: 1, roughness: 0.2 }))
+  const hanger = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.012, 4, 16, Math.PI), M.gold)
   hanger.position.y = 0.05
   m.add(hanger)
   return m
@@ -44,20 +44,7 @@ export function shopDecor(w: Wing, c: Content) {
   const g = new THREE.Group()
   g.position.y = w.floorY
   w.group.add(g)
-  const cols = ['#ff4fd8', '#7cf2e4', '#b89cff', '#ffd27c']
-  // neon tubes zig-zagging along both walls and over the ceiling
-  for (const sd of [-1, 1])
-    for (let k = 0; k < 2; k++) {
-      const pts: THREE.Vector3[] = []
-      for (let i = 0; i <= 10; i++) pts.push(new THREE.Vector3(sd * (w.W / 2 - 0.15), 2.4 + k * 2 + (i % 2 ? 0.7 : 0), z0 - 1 - (i / 10) * (w.L - 2)))
-      const tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.2), 120, 0.015, 6), new THREE.MeshBasicMaterial({ color: cols[(k + (sd > 0 ? 1 : 0)) % 4], toneMapped: false }))
-      g.add(tube)
-    }
-  for (let i = 0; i < 5; i++) {
-    const arc = new THREE.Mesh(new THREE.TorusGeometry(w.W / 2 - 0.6, 0.018, 6, 48, Math.PI), new THREE.MeshBasicMaterial({ color: cols[i % 4], toneMapped: false }))
-    arc.position.set(0, 4.2, z0 - 2 - i * ((w.L - 4) / 4))
-    g.add(arc)
-  }
+  const cols = ['#b89cff', '#a697da', '#c9a86a', '#d8ccff']
   // central rotating rack of 3D shirts
   const rack = new THREE.Group()
   rack.position.set(0, 0, z0 - w.L / 2)
@@ -70,7 +57,7 @@ export function shopDecor(w: Wing, c: Content) {
   )
   ring.rotation.x = Math.PI / 2
   ring.position.y = 0.42
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 2.6, 8), new THREE.MeshStandardMaterial({ color: '#d9d4e8', metalness: 1, roughness: 0.2 }))
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 2.6, 8), M.gold)
   pole.position.y = 1.7
   rack.add(pod, ring, pole)
   const spin = new THREE.Group()
@@ -85,7 +72,7 @@ export function shopDecor(w: Wing, c: Content) {
     sh.rotation.y = -a + Math.PI / 2
     spin.add(sh)
   }
-  const glow = new THREE.PointLight('#ff6fe0', 10, 8, 1.6)
+  const glow = new THREE.PointLight('#d8ccff', 2.2, 6, 1.8)
   glow.position.y = 3.5
   rack.add(glow)
   w.obstacle(0, z0 - w.L / 2, 1.8)

@@ -431,7 +431,7 @@ const builders: Partial<Record<RoomId, Builder>> = {
     }
   },
   tienda(w, c, add, hooks) {
-    roomLight(w, '#e2d4ff', 70)
+    roomLight(w, '#e2d4ff', 38)
     const decor = shopDecor(w, c)
     shopTicks.push(decor.tick)
     const list = c.products
@@ -442,25 +442,49 @@ const builders: Partial<Record<RoomId, Builder>> = {
       const lz = z0 - 3 - ((j + 0.5) / per) * (w.L - 6)
       const lx = side * (w.W / 2 - 2.4)
       const g = new THREE.Group()
-      const ped = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1, 1.4), P.wood)
-      ped.position.y = 0.5
-      const glass = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.5, 1.3), new THREE.MeshPhysicalMaterial({ color: '#b9aaff', transparent: true, opacity: 0.12, roughness: 0.18, metalness: 0.08, depthWrite: false, side: THREE.DoubleSide }))
-      glass.position.y = 1.75
-      const img = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.1), textureFor(p.gen, p.seed, p.media, 'image'))
-      img.position.set(0, 1.75, 0)
+      const ped = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.7, 1.4), P.wood)
+      ped.position.y = 0.35
+      const trim = new THREE.Mesh(new THREE.BoxGeometry(1.44, 0.025, 1.44), P.gold)
+      trim.position.y = 0.72
+      const glassMat = new THREE.MeshPhysicalMaterial({ color: '#d8d0ff', transparent: true, opacity: 0.055, roughness: 0.16, metalness: 0.04, depthWrite: false, side: THREE.DoubleSide })
+      const glass = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.38, 1.3), glassMat)
+      glass.position.y = 1.42
+      const rimMat = P.gold
+      const rim = new THREE.Group()
+      for (const x of [-0.64, 0.64]) for (const z of [-0.64, 0.64]) {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.025, 1.36, 0.025), rimMat)
+        post.position.set(x, 1.42, z)
+        rim.add(post)
+      }
+      for (const y of [0.73, 2.11]) {
+        for (const z of [-0.64, 0.64]) {
+          const bar = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.025, 0.025), rimMat)
+          bar.position.set(0, y, z)
+          rim.add(bar)
+        }
+        for (const x of [-0.64, 0.64]) {
+          const bar = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.025, 1.3), rimMat)
+          bar.position.set(x, y, 0)
+          rim.add(bar)
+        }
+      }
+      const img = new THREE.Mesh(new THREE.PlaneGeometry(1.02, 1.02), textureFor(p.gen, p.seed, p.media, 'image'))
+      img.position.set(0, 1.48, 0.46)
       img.userData.spin = true
-      const price = label(`${tx(p, 'name')} · $${p.price}`, '', 1.6)
-      price.position.set(0, 2.65, 0.68)
-      const led = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.02, 1.42), M.neonSoft)
-      led.position.y = 1.0
-      g.add(ped, glass, img, led, price)
+      const downlight = new THREE.PointLight('#e4d8ff', 1.1, 2.8, 2)
+      downlight.position.set(0, 2.03, 0)
+      const plaque = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.28, 0.025), M.obsidian)
+      plaque.position.set(0, 0.88, 0.6)
+      const price = label(tx(p, 'name'), `$${p.price}`, 0.78, '#ead9b6')
+      price.position.set(0, 0.88, 0.62)
+      g.add(ped, trim, glass, rim, img, downlight, plaque, price)
       local(w, g, lx, lz)
       w.obstacle(lx, lz, 1.05)
       add({ id: p.id, pos: w.world(lx - side * 1.6, lz), r: 1.7, label: `${tx(p, 'name')} · $${p.price}`, room: w.room, action: () => hooks.openShop(p) })
     })
     const counter = new THREE.Mesh(new THREE.BoxGeometry(5, 1.1, 1.2), P.wood)
     local(w, counter, 0, z0 - w.L + 2.5, 0.55)
-    const cl = new THREE.Mesh(new THREE.BoxGeometry(5, 0.04, 0.04), M.neon)
+    const cl = new THREE.Mesh(new THREE.BoxGeometry(5, 0.025, 0.025), P.gold)
     local(w, cl, 0, z0 - w.L + 3.1, 1.1)
     w.obstacle(-1.6, z0 - w.L + 2.5, 1)
     w.obstacle(0, z0 - w.L + 2.5, 1)
