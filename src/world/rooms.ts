@@ -75,17 +75,21 @@ const roomLight = (w: Wing, color = '#b89cff', intensity = 60) => {
 
 function gallery(w: Wing, c: Content, add: (i: Interactable) => void, hooks: Hooks, list: Artwork[]) {
   const anchors = [...w.bays, ...w.corridorBays].filter((bay) => !bay.chapel)
+  const rows = Math.ceil(Math.max(0, list.length - anchors.length) / 2)
+  const bayLength = w.L / Math.max(1, Math.round(w.L / (w.W / 2)))
+  const spacing = rows ? Math.min(bayLength, (w.L - 2) / rows) : bayLength
   list.forEach((a, i) => {
     const bay = anchors[i]
     const overflow = i - anchors.length
     const side = bay?.side ?? (overflow % 2 === 0 ? -1 : 1)
     const lx = bay ? bay.anchor.x - side * 1.15 : side * (w.W / 4)
-    const bayLength = w.L / Math.max(1, Math.round(w.L / (w.W / 2)))
-    const lz = bay?.z ?? z0 - w.L + bayLength / 2 + Math.floor(overflow / 2) * bayLength
+    const lz = bay?.z ?? z0 - w.L + 1 + spacing / 2 + Math.floor(overflow / 2) * spacing
     const st = paintingStele(a, 2.4, !bay)
     local(w, st, lx, lz, 0, side * -Math.PI / 2)
     w.obstacle(lx, lz, 1.0)
-    add({ id: a.id, pos: w.world(lx - side * 1.6, lz), r: 2.2, label: `${L('Ver', 'View')} · ${tx(a, 'title')}`, room: w.room, action: () => hooks.openArt(a) })
+    const label = `${L('Ver', 'View')} · ${tx(a, 'title')}`
+    add({ id: a.id, pos: w.world(lx - side * 1.6, lz), r: 2.2, label, room: w.room, action: () => hooks.openArt(a) })
+    if (!bay) add({ id: a.id + '-back', pos: w.world(lx + side * 1.6, lz), r: 2.2, label, room: w.room, action: () => hooks.openArt(a) })
   })
   void c
 }
