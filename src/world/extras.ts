@@ -32,12 +32,13 @@ export function buildExtras(root: THREE.Group, nav: Nav, c: Content, wings: Wing
     const hedgeRows = new THREE.InstancedMesh(
       new THREE.BoxGeometry(0.75, 1.1, 4.2),
       new THREE.MeshStandardMaterial({ color: '#1d2e20', roughness: 0.96 }),
-      12,
+      4,
     )
     const hedgeTransform = new THREE.Object3D()
     let hedgeIndex = 0
     for (const side of [-1, 1]) {
-      for (let i = 0; i < 6; i++) {
+      // Hedges stop before the forum circle so visitors can walk around the stage.
+      for (let i = 0; i < 2; i++) {
         const z = gz - 21 - i * 4.2
         hedgeTransform.position.set(side * 3.15, 0.55, z)
         hedgeTransform.updateMatrix()
