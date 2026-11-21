@@ -47,3 +47,29 @@ export function resolveMedia(ref: string | undefined | null): Promise<string | n
   }
   return p
 }
+
+/** Uploads to shared Vercel Blob storage when available (visible to every visitor); IndexedDB otherwise. */
+export async function uploadMedia(file: File, onProgress?: (pct: number) => void): Promise<string> {
+  const pin = sessionStorage.getItem('cm.adminPin')
+  if (pin) {
+    try {
+      const { upload } = await import('@vercel/blob/client')
+      const safe = file.name.replace(/[^\w.\-]+/g, '_')
+      const b = await upload(`media/${safe}`, file, { access: 'public', handleUploadUrl: './api/upload', clientPayload: JSON.stringify({ pin }), onUploadProgress: (e) => onProgress?.(e.percentage) })
+      return b.url
+    } catch (e) {
+      console.warn('Blob upload failed, falling back to local storage', e)
+    }
+  }
+  return putMedia(file)
+}
+
+export function assetKind(name: string, type = ''): 'image' | 'video' | 'gif' | 'model' | 'audio' | 'link' {
+  const n = name.toLowerCase()
+  if (/\.gif($|\?)/.test(n) || type === 'image/gif') return 'gif'
+  if (/\.(glb|gltf|fbx|obj|ply|usdz)($|\?)/.test(n)) return 'model'
+  if (type.startsWith('video') || /\.(mp4|webm|mov|m4v)($|\?)/.test(n)) return 'video'
+  if (type.startsWith('audio') || /\.(mp3|wav|ogg)($|\?)/.test(n)) return 'audio'
+  if (type.startsWith('image') || /\.(png|jpe?g|webp|avif|svg)($|\?)/.test(n)) return 'image'
+  return 'link'
+}

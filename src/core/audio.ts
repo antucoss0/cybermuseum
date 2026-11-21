@@ -13,6 +13,9 @@ const PROFILES: Record<RoomId | 'corridor', Profile> = {
   videojuegos: { root: 49, chord: [1, 1.5, 2, 3, 4], cutoff: 2400, scale: [4, 4.5, 5.33, 6, 8, 9, 10.67], rate: 4, noise: 0.01, wave: 'sawtooth', reverb: 0.5 },
   futuro: { root: 41.2, chord: [1, 1.41, 2], cutoff: 400, scale: [3, 4.24], rate: 0.15, noise: 0.06, wave: 'sine', reverb: 0.9 },
   corridor: { root: 73.42, chord: [1, 1.5, 2], cutoff: 500, scale: [3, 4], rate: 0.1, noise: 0.02, wave: 'sine', reverb: 0.8 },
+  salas: { root: 61.74, chord: [1, 1.26, 1.5, 1.89], cutoff: 760, scale: [1, 1.26, 1.5, 2, 2.52], rate: 0.25, noise: 0.012, wave: 'triangle', reverb: 0.8 },
+  foro: { root: 49, chord: [1, 1.5, 2, 3], cutoff: 1400, scale: [1, 1.33, 1.5, 2, 2.67, 3], rate: 0.9, noise: 0.02, wave: 'sawtooth', reverb: 0.55 },
+  juntas: { root: 82.41, chord: [1, 1.5, 2], cutoff: 400, scale: [1, 1.5, 2], rate: 0.08, noise: 0.006, wave: 'sine', reverb: 0.3 },
 }
 
 class Pad {

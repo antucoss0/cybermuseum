@@ -267,10 +267,10 @@ export class Hud {
     const amounts = [20, 50, 100, 200, 500]
     const m = this.modal('pay', `<span class="kicker">${purpose === 'tienda' ? L('Compra', 'Purchase') : purpose === 'jardin' ? L('Jardín digital', 'Digital garden') : L('Apoyo', 'Support')}</span>
       <h2 class="serif">${esc(concept)}</h2>
-      <p class="desc">${L('Pago con CoDi / SPEI. Al confirmarse, la nube gaussiana entra en sobrecarga, la luz del museo cambia y crece una flor en el jardín para todos los visitantes.', 'Pay with CoDi / SPEI. Once confirmed, the Gaussian cloud overloads, the museum light changes and a flower grows in the garden for every visitor.')}</p>
+      <p class="desc">${L('Pago seguro con tarjeta (Stripe). Al confirmarse, la nube se enciende y crece una flor en el jardín para todos.', 'Secure card payment (Stripe). Once confirmed, the cloud lights up and a flower grows in the garden for everyone.')}</p>
       ${fixed ? '' : `<div class="amounts">${amounts.map((a) => `<button class="btn sm ${a === amount ? 'on' : ''}" data-a="${a}">${money(a)}</button>`).join('')}</div>`}
       <div class="form"><label>${L('Nombre que aparecerá en el museo', 'Name shown in the museum')}<input data-payer maxlength="24" value="${esc(this.playerName)}"></label></div>
-      <div class="actions"><button class="btn primary" data-go>${L('Generar QR', 'Generate QR')} · <span data-amt>${money(amount)}</span></button></div>
+      <div class="actions"><button class="btn primary" data-go>${L('Pagar', 'Pay')} · <span data-amt>${money(amount)}</span></button></div>
       <div class="qr hidden"></div>`)
     let amt = amount
     m.querySelectorAll<HTMLButtonElement>('[data-a]').forEach((b) => (b.onclick = () => {
@@ -292,8 +292,11 @@ export class Hud {
           await QRCode.toCanvas(cv, co.qrString, { width: 220, margin: 1, color: { dark: '#0b0a12', light: '#ece8ff' } })
           qr.append(cv)
         }
-        if (co.url) qr.append(h('a', { class: 'btn sm', href: co.url, target: '_blank', rel: 'noopener' }, L('Abrir link de pago', 'Open payment link')))
-        qr.append(h('p', { class: 'muted' }, co.simulated ? L(`Modo demo (${provider.name}) · sin API key de pey configurada en el backend.`, `Demo mode (${provider.name}) · no pey API key configured on the backend.`) : L('Escanea con la app de tu banco (CoDi). Esperando confirmación…', 'Scan with your bank app (CoDi). Waiting for confirmation…')))
+        if (co.url) {
+          window.open(co.url, '_blank', 'noopener')
+          qr.append(h('a', { class: 'btn primary sm', href: co.url, target: '_blank', rel: 'noopener' }, L('Abrir Stripe Checkout', 'Open Stripe Checkout')))
+        }
+        qr.append(h('p', { class: 'muted' }, co.simulated ? L('Modo demo · los pagos reales se activan al configurar Stripe.', 'Demo mode · real payments switch on once Stripe is configured.') : L('Completa el pago en la pestaña de Stripe. Esperando confirmación…', 'Finish paying in the Stripe tab. Waiting for confirmation…')))
         if (co.simulate) {
           const b = h('button', { class: 'btn primary sm' }, L('Simular pago recibido ✦', 'Simulate payment received ✦'))
           b.onclick = () => co.simulate!()

@@ -2,11 +2,11 @@ import { L } from '../core/i18n'
 import type { Content, RoomId } from '../content/types'
 import { content } from '../content/store'
 import { GEN_2D, paintClone } from '../core/gen2d'
-import { putMedia, resolveMedia } from '../core/media'
+import { resolveMedia, uploadMedia } from '../core/media'
+import { aboutView, callsView, forumView, hallsView, meetingsView, revenueView, statsView } from './v2'
 import { esc, h, money, timeAgo, uid } from '../core/util'
 import { payments, type PaymentEvent } from '../payments/bus'
 import { DEFAULT_ADMIN_HASH } from '../content/defaults'
-import { detectBackend } from '../payments/provider'
 
 type Field = { k: string; label: string; type?: 'text' | 'number' | 'textarea' | 'select' | 'media' | 'tags' | 'bool' | 'date'; options?: string[] }
 type ListKey = 'artworks' | 'products' | 'films' | 'games' | 'events'
@@ -43,6 +43,10 @@ const LISTS: Record<ListKey, { title: string; fields: Field[]; blank: () => any 
       { k: 'gen', label: 'Imagen generativa', type: 'select', options: GEN_2D },
       { k: 'seed', label: 'Semilla', type: 'number' },
       { k: 'media', label: 'Foto del producto', type: 'media' },
+      { k: 'model', label: 'Modelo 3D (URL .glb)' },
+      { k: 'link', label: 'Link externo / marketplace' },
+      { k: 'pod', label: 'Print-on-demand (SKU / proveedor)' },
+      { k: 'visible', label: 'Visible', type: 'bool' },
       { k: 'description', label: 'Descripción', type: 'textarea' },
       { k: 'en.name', label: 'Product (EN)' },
       { k: 'en.description', label: 'Description (EN)', type: 'textarea' },
@@ -57,7 +61,14 @@ const LISTS: Record<ListKey, { title: string; fields: Field[]; blank: () => any 
       { k: 'duration', label: 'Duración (s)', type: 'number' },
       { k: 'gen', label: 'Proyección generativa', type: 'select', options: ['nebula', 'cathedral', 'pulse', 'bloom'] },
       { k: 'media', label: 'Video (mp4 / webm)', type: 'media' },
+      { k: 'category', label: 'Categoría', type: 'select', options: ['Cortos', 'Videoarte', 'Videoclips', 'Documental', 'Estrenos', 'Publicidad'] },
+      { k: 'year', label: 'Año' },
+      { k: 'schedule', label: 'Horario (ej. Vie 20:00)' },
+      { k: 'ad', label: 'Es publicidad (se proyecta entre programas)', type: 'bool' },
+      { k: 'visible', label: 'Visible', type: 'bool' },
+      { k: 'synopsis', label: 'Sinopsis', type: 'textarea' },
       { k: 'en.title', label: 'Title (EN)' },
+      { k: 'en.synopsis', label: 'Synopsis (EN)', type: 'textarea' },
     ],
     blank: () => ({ id: uid('f'), title: 'Nueva proyección', author: '', duration: 60, gen: 'nebula' }),
   },
@@ -145,20 +156,27 @@ export function openAdmin(ui: HTMLElement, onClose: () => void) {
 
 function panel(el: HTMLElement, close: () => void) {
   const tabs = [
-    ['resumen', L('Resumen', 'Overview')],
-    ['salas', L('Salas', 'Halls')],
-    ['artworks', L('Obras', 'Artworks')],
-    ['solicitudes', L('Solicitudes', 'Submissions')],
-    ['temporal', L('Temporal · Convocatoria', 'Temporary · Open call')],
-    ['films', L('Videosala', 'Screening room')],
-    ['games', L('Videojuegos', 'Videogames')],
+    ['stats', L('Estadísticas', 'Statistics')],
+    ['h-temporal', L('Exposiciones temporales', 'Temporary exhibitions')],
+    ['h-2d', L('Sala 2D', '2D Hall')],
+    ['h-3d', L('Sala 3D', '3D Hall')],
+    ['h-games', L('Videojuegos', 'Videogames')],
+    ['games', L('Puertas de juego', 'Game doors')],
     ['products', L('Tienda', 'Shop')],
-    ['events', L('Eventos', 'Events')],
+    ['forum', L('Foro', 'Forum')],
+    ['films', L('Videosala', 'Screening room')],
+    ['calls', L('Convocatorias', 'Open calls')],
+    ['solicitudes', L('Postulaciones', 'Applications')],
+    ['about', 'About'],
+    ['meetings', L('Sala de juntas', 'Meeting room')],
+    ['salas', L('Alas del edificio', 'Building wings')],
+    ['artworks', L('Obras permanentes', 'Permanent works')],
+    ['events', L('Agenda', 'Calendar')],
     ['builder', L('Constructor procedural', 'Procedural builder')],
-    ['pagos', L('Pagos e ingresos', 'Payments & revenue')],
+    ['revenue', L('Ingresos 🔒', 'Revenue 🔒')],
     ['ajustes', L('Ajustes', 'Settings')],
   ]
-  let tab = 'resumen'
+  let tab = 'stats'
   el.innerHTML = `<button class="icon-btn glass menu-toggle">☰</button><aside class="glass"><a class="brand" href="#"><span class="glyph star">✦</span><span><b>CYBER MUSEUM</b><small>SUPERADMIN</small></span></a>
     ${tabs.map(([k, l]) => `<button data-tab="${k}">${l}</button>`).join('')}<button data-exit>← ${L('Volver al museo', 'Back to the museum')}</button></aside><main></main>`
   const main = el.querySelector('main')!
@@ -170,7 +188,9 @@ function panel(el: HTMLElement, close: () => void) {
   const render = () => {
     aside.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab))
     main.scrollTop = 0
+    delete main.dataset.open
     if (tab in LISTS) return listView(main, tab as ListKey, render)
+    if (tab.startsWith('h-')) return hallsView(tab.slice(2) as any)(main, render)
     ;(views[tab] ?? views.resumen)(main, render)
   }
   render()
@@ -270,26 +290,12 @@ const views: Record<string, (m: HTMLElement, rerender: () => void) => void> = {
       rr()
     })
   },
-  pagos(m, rr) {
-    const s = content.data.settings
-    m.innerHTML = `<h1 class="serif">${L('Pagos', 'Payments')}</h1><p class="lead">Cada pago confirmado se emite al bus de pagos: enciende la nube gaussiana, cambia la luz del edificio, genera ondas en el piso y planta una flor en el jardín, en todos los visitantes conectados.</p>
-      <div class="sec glass"><h3 class="serif">Simulador</h3><div class="row">${[20, 100, 500, 2000].map((a) => `<button class="btn sm" data-sim="${a}">Simular ${money(a)}</button>`).join('')}<button class="btn sm" data-burst>Ráfaga ×10</button></div></div>
-      <div class="sec glass"><h3 class="serif">pey · CoDi <span class="chip" data-peystate>…</span></h3>
-        <p class="note">${L('La API key vive sólo en el backend (variable <code>PEY_API_KEY</code> de las funciones <code>/api</code>). El museo crea un QR CoDi con <code>POST /codi/qr</code>, consulta su estado con <code>GET /transaction/codi/qr/{id}</code> y valida los webhooks <code>codi.qr.payment_received</code> con firma Standard Webhooks. Deja vacío para usar las funciones del mismo dominio.', 'The API key only lives on the backend (<code>PEY_API_KEY</code> of the <code>/api</code> functions). The museum creates a CoDi QR with <code>POST /codi/qr</code>, polls <code>GET /transaction/codi/qr/{id}</code> and verifies <code>codi.qr.payment_received</code> webhooks with Standard Webhooks signatures. Leave empty to use same-origin functions.')}</p>
-        <div class="row"><input data-backend placeholder="./api" value="${esc(s.peyBackend)}" style="flex:1"><button class="btn primary sm" data-save>${L('Guardar', 'Save')}</button></div>
-        <div data-peytx style="margin-top:12px"></div></div>
-      <div class="sec glass"><h3 class="serif">Historial</h3>${payTable(60)}<div class="row" style="margin-top:10px"><button class="btn sm ghost" data-clear>Borrar historial</button></div></div>`
-    const names = ['Lía', 'Kai', 'Mara', 'Noa', 'Iker', 'Vera', 'Antu', 'Sol']
-    const sim = (a: number) => payments.ingest(payments.make(a, 'Donación simulada', 'donacion', names[Math.floor(Math.random() * names.length)], 'sim'))
-    m.querySelectorAll<HTMLButtonElement>('[data-sim]').forEach((b) => (b.onclick = () => (sim(Number(b.dataset.sim)), rr())))
-    m.querySelector('[data-burst]')!.addEventListener('click', () => {
-      for (let i = 0; i < 10; i++) setTimeout(() => sim(20 + Math.floor(Math.random() * 400)), i * 350)
-      setTimeout(rr, 3800)
-    })
-    m.querySelector('[data-save]')!.addEventListener('click', () => (content.update((d) => (d.settings.peyBackend = (m.querySelector('[data-backend]') as HTMLInputElement).value.trim())), rr()))
-    m.querySelector('[data-clear]')!.addEventListener('click', () => confirm('¿Borrar historial de pagos?') && (payments.clear(), rr()))
-    peyPanel(m)
-  },
+  stats: (m) => statsView(m),
+  calls: callsView,
+  forum: forumView,
+  meetings: meetingsView,
+  about: aboutView,
+  revenue: (m, rr) => revenueView(() => revenueCharts(payments.list), payTable)(m, rr),
   ajustes(m, rr) {
     const s = content.data.settings
     m.innerHTML = `<h1 class="serif">${L('Ajustes', 'Settings')}</h1>
@@ -320,24 +326,6 @@ const views: Record<string, (m: HTMLElement, rerender: () => void) => void> = {
   },
 }
 
-async function peyPanel(m: HTMLElement) {
-  const state = m.querySelector('[data-peystate]') as HTMLElement
-  const box = m.querySelector('[data-peytx]') as HTMLElement
-  const backend = await detectBackend()
-  state.textContent = backend ? L('conectado', 'connected') : L('modo demo', 'demo mode')
-  state.classList.toggle('on', !!backend)
-  if (!backend) return
-  try {
-    const r = await fetch(backend.replace(/\/$/, '') + '/transactions', { headers: { 'x-admin-pin': sessionStorage.getItem('cm.adminPin') ?? '' }, cache: 'no-store' })
-    const j = await r.json()
-    const items = (j.items ?? []) as any[]
-    const paid = items.filter((t) => t.status === 'PAID')
-    box.innerHTML = `<div class="cards"><div class="stat glass"><small>${L('Cobrado en pey', 'Collected on pey')}</small><b>${money(paid.reduce((s, t) => s + Number(t.amount || 0), 0))}</b></div><div class="stat glass"><small>${L('Transacciones', 'Transactions')}</small><b>${items.length}</b></div></div>
-      <table><tr><th>${L('Fecha', 'Date')}</th><th>${L('Concepto', 'Concept')}</th><th>${L('Estado', 'Status')}</th><th>${L('Monto', 'Amount')}</th></tr>${items.slice(0, 30).map((t) => `<tr><td>${t.dateCreated ? new Date(t.dateCreated * 1000).toLocaleString() : ''}</td><td>${esc(t.description ?? t.type ?? '')}</td><td><code>${esc(t.status ?? '')}</code></td><td>${money(Number(t.amount || 0))}</td></tr>`).join('')}</table>`
-  } catch (e) {
-    box.innerHTML = `<p class="note">${esc(String(e))}</p>`
-  }
-}
 
 const PURPOSE_COLORS: Record<string, string> = { donacion: '#b89cff', tienda: '#7cf2e4', jardin: '#ff9be9', entrada: '#8fb4ff' }
 function revenueCharts(list: PaymentEvent[]) {
@@ -410,7 +398,7 @@ function listView(m: HTMLElement, key: ListKey, rr: () => void) {
           const file = i.files?.[0]
           if (file) {
             ;(sec.querySelector('[data-msg]') as HTMLElement).textContent = 'Subiendo…'
-            next.media = await putMedia(file)
+            next.media = await uploadMedia(file, (p) => ((sec.querySelector('[data-msg]') as HTMLElement).textContent = Math.round(p) + '%'))
             if (key === 'artworks' && next.kind === 'generative') next.kind = file.type.startsWith('video') ? 'video' : /gltf|glb/.test(file.name) ? 'model' : 'image'
           }
           if ((sec.querySelector(`[data-clear="${f.k}"]`) as HTMLInputElement)?.checked) delete next.media

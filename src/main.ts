@@ -12,6 +12,7 @@ import { detectQuality, isTouch } from './core/util'
 import { content } from './content/store'
 import type { GameDoor, RoomId } from './content/types'
 import { payments, type PaymentEvent } from './payments/bus'
+import { checkSession } from './payments/provider'
 import { createSky } from './world/sky'
 import { createCloud } from './world/cloud'
 import { shared } from './world/materials'
@@ -90,6 +91,13 @@ content.changed.on(() => {
     hud?.renderDrawer()
   }, 250)
 })
+
+content.pull()
+const paidId = params.get('paid')
+if (paidId) {
+  history.replaceState(null, '', location.pathname + location.hash)
+  checkSession(paidId).then((ev) => ev && payments.ingest(ev)).catch(() => {})
+}
 
 // ---------- payment reactions ----------
 let energy = 0

@@ -1,6 +1,6 @@
 import { Emitter, hashString, uid } from '../core/util'
 
-export type PaymentSource = 'sim' | 'pey' | 'peer'
+export type PaymentSource = 'sim' | 'stripe' | 'peer'
 export type PaymentPurpose = 'donacion' | 'tienda' | 'jardin' | 'entrada'
 
 export interface PaymentEvent {
@@ -28,7 +28,7 @@ function load(): PaymentEvent[] {
 class PaymentBus {
   list: PaymentEvent[] = load()
   private ids = new Set(this.list.map((p) => p.id))
-  /** Fired for every new payment (local, peer or pey webhook relay). */
+  /** Fired for every new payment (local, peer or Stripe). */
   received = new Emitter<PaymentEvent>()
 
   ingest(p: PaymentEvent): boolean {

@@ -13,9 +13,9 @@ export const DEFAULT_ADMIN_HASH = '79f06f8fde333461739f220090a23cb2a79f6d714bee1
 
 export function defaultContent(): Content {
   return withEnglish({
-    version: 1,
+    version: 2,
     rooms: {
-      lobby: room('lobby', 'Lobby · La Bóveda', 'Cúpula reactiva', 'En el centro de la bóveda flota la Nube Gaussiana: cada pago CoDi la enciende, sobrecarga su tensión y cambia la luz del edificio.'),
+      lobby: room('lobby', 'Lobby · La Bóveda', 'Cúpula reactiva', 'En el centro de la bóveda flota la Nube Gaussiana: cada aporte la enciende, sobrecarga su tensión y cambia la luz del edificio.'),
       videosala: room('videosala', 'Videosala', 'Cine virtual', 'Proyecciones constantes de cortos, videoclips y video arte transmedia.'),
       escultura: room('escultura', 'Sala Escultura 3D', 'Modelos vivos', 'Esculturas 3D animadas y funcionales en tiempo real sobre pedestales de obsidiana.'),
       pintura: room('pintura', 'Sala Pintura 2D', 'Imagen fija', 'Un museo tradicional: piezas 2D e imagen fija para contemplar sin prisa.'),
@@ -23,7 +23,10 @@ export function defaultContent(): Content {
       jardin: room('jardin', 'Jardín Digital', 'Exterior surreal', 'El exterior del edificio: una planta única nace con cada pago, flotando en medio de la galaxia.'),
       temporales: room('temporales', 'Exposiciones Temporales', 'Convocatoria abierta', 'Un espacio internacional para curadores y artistas transmedia: convocatorias, dinámicas y concursos.'),
       videojuegos: room('videojuegos', 'Videojuegos e Interactividad', 'Pasillo de portales', 'Un pasillo de puertas hacia videojuegos y salas inmersivas donde te vuelves coautor de la experiencia.'),
-      futuro: room('futuro', 'Espacio Futuro', 'En construcción', 'Un ala que el SuperAdmin puede construir y abrir con la semilla procedural.', false),
+      futuro: room('futuro', 'Mirador Estelar', 'Observatorio', 'Un balcón abierto al cosmos: constelaciones, una galaxia espiral y un planeta anillado sobre la isla.'),
+      salas: room('salas', 'Salas', 'Exposición', 'Salas curadas desde el SuperAdmin.'),
+      foro: room('foro', 'Foro', 'Anfiteatro greco-futurista', 'Conciertos virtuales, DJs, fiestas y charlas bajo las estrellas.'),
+      juntas: room('juntas', 'Sala de Juntas', 'Privada · 8 personas', 'Un recinto privado con voz y chat, accesible sólo con enlace.'),
     },
     temp: {
       title: 'Ethereal Echoes of My Mind',
@@ -87,23 +90,60 @@ export function defaultContent(): Content {
       { id: 'e4', title: 'Concurso Jardín Surreal', date: '2026-12-01', kind: 'concurso', description: 'La planta más extraña del jardín gana un print firmado.' },
       { id: 'e5', title: 'Obras curadas · Sala Escultura', date: '2026-11-28', kind: 'curaduria', description: 'Nueva selección de esculturas animadas en tiempo real.' },
     ],
+    halls: [
+      { id: 'h-echoes', kind: 'temporal', name: 'Ethereal Echoes', theme: 'Memoria y deseo', curatorial: 'Una exploración visual de la memoria, el deseo y la identidad en un universo digital. Curaduría: Antu Coss.', color: '#c9a6ff', visible: true, start: '2026-11-14', end: '2027-02-14', pieces: [
+        { id: 'hp1', title: 'Ethereal Echoes I', author: 'Antu Coss', year: '2025', lore: 'Lo que recordamos cambia cada vez que lo recordamos.', links: '', assets: [], gen: 'flower', seed: 101, visible: true, donation: true },
+        { id: 'hp2', title: 'Ethereal Echoes II', author: 'Antu Coss', year: '2025', lore: 'Ecos que todavía no suenan.', links: '', assets: [], gen: 'nebula', seed: 102, visible: true, donation: true },
+        { id: 'hp3', title: 'Ofrenda Binaria', author: 'Vera Ion', year: '2026', lore: 'Una ofrenda para los archivos que ya no existen.', links: '', assets: [], gen: 'glyph', seed: 106, visible: true, donation: true },
+        { id: 'hp4', title: 'Resonancia', author: 'Kai Noct', year: '2026', lore: 'Frecuencias de la memoria convertidas en color.', links: '', assets: [], gen: 'tide', seed: 105, visible: true, donation: true } ] },
+      { id: 'h-suenos', kind: 'temporal', name: 'Sala Sueños', theme: 'Vigilia', curatorial: 'Imágenes recogidas en la frontera entre el sueño y la vigilia.', color: '#7fd8ff', visible: true, start: '2026-11-20', end: '2027-01-30', pieces: [
+        { id: 'hs1', title: 'Sala Sueños', author: 'Kai Noct', year: '2026', lore: 'Un umbral entre dormir y despertar.', links: '', assets: [], gen: 'portal', seed: 103, visible: true, donation: true },
+        { id: 'hs2', title: 'Sala Cosmos', author: 'Vera Ion', year: '2026', lore: 'El universo como una catedral sin muros.', links: '', assets: [], gen: 'choir', seed: 104, visible: true, donation: true } ] },
+      { id: 'h-tinta', kind: '2d', name: 'Tinta Estelar', theme: 'Ilustración', curatorial: 'Ilustración digital y trazo a mano sobre constelaciones imaginarias.', color: '#ffd28a', visible: true, pieces: [
+        { id: 'ht1', title: 'Glifos del Coro', author: 'Lía Sombra', year: '2025', lore: 'Partituras de estrellas transcritas en símbolos.', links: '', assets: [], gen: 'glyph', seed: 71, visible: true, donation: true },
+        { id: 'ht2', title: 'Rosetón de Obsidiana', author: 'Lía Sombra', year: '2026', lore: 'Geometría gótica como algoritmo de luz.', links: '', assets: [], gen: 'rose', seed: 23, visible: true, donation: true },
+        { id: 'ht3', title: 'Eclipse Efímero', author: 'Noa Kairos', year: '2026', lore: 'Ser pequeño frente al universo es ser uno con él.', links: '', assets: [], gen: 'eclipse', seed: 67, visible: true, donation: true } ] },
+      { id: 'h-neon', kind: '2d', name: 'Neón Sacro', theme: 'Arte digital', curatorial: 'Iconografía sacra reinterpretada con luz neón.', color: '#ff7ad9', visible: true, pieces: [
+        { id: 'hn1', title: 'Portal Lavanda', author: 'Antu Coss', year: '2026', lore: 'Un arco hacia el espacio entre dos latidos.', links: '', assets: [], gen: 'portal', seed: 41, visible: true, donation: true },
+        { id: 'hn2', title: 'Marea Galáctica', author: 'Iker Vale', year: '2024', lore: 'Un océano que sólo existe en órbita.', links: '', assets: [], gen: 'tide', seed: 53, visible: true, donation: true } ] },
+      { id: 'h-cromo', kind: '3d', name: 'Cromo Vivo', theme: 'Escultura generativa', curatorial: 'Esculturas que respiran: metal líquido, topologías y retículas.', color: '#9ee7ff', visible: true, pieces: [
+        { id: 'hc1', title: 'Corazón Líquido', author: 'Antu Coss', year: '2026', lore: 'Cromo líquido que respira con el museo.', links: '', assets: [], gen: 'liquid', seed: 5, visible: true, donation: true },
+        { id: 'hc2', title: 'Nudo de Eternidad', author: 'Iker Vale', year: '2025', lore: 'Un camino sin principio ni fin.', links: '', assets: [], gen: 'knot', seed: 6, visible: true, donation: true },
+        { id: 'hc3', title: 'Celosía Astral', author: 'Noa Kairos', year: '2026', lore: 'Retícula de luz que cambia de forma.', links: '', assets: [], gen: 'lattice', seed: 7, visible: true, donation: true } ] },
+      { id: 'h-reliquias', kind: '3d', name: 'Reliquias', theme: 'Neoclásico digital', curatorial: 'Bustos y ángeles del futuro, deshechos en partículas.', color: '#e8d2a6', visible: true, pieces: [
+        { id: 'hr1', title: 'Busto de la Memoria', author: 'Mara Lux', year: '2025', lore: 'Un rostro clásico deshecho en partículas.', links: '', assets: [], gen: 'bust', seed: 8, visible: true, donation: true },
+        { id: 'hr2', title: 'Ángel de Neón', author: 'Antu Coss', year: '2026', lore: 'Guardián alado cosido con luz.', links: '', assets: [], gen: 'angel', seed: 10, visible: true, donation: true } ] },
+      { id: 'h-arcade', kind: 'games', name: 'Arcade Astral', theme: 'Juegos indie', curatorial: 'Puertas a juegos web independientes seleccionados.', color: '#8affc1', visible: true, external: 'https://itch.io/games/html5', pieces: [] },
+      { id: 'h-lab', kind: 'games', name: 'Laboratorio Inmersivo', theme: 'Experiencias', curatorial: 'Experimentos interactivos y narrativas que se recorren.', color: '#b89cff', visible: true, pieces: [
+        { id: 'hl1', title: 'Sinestesia', author: 'Ethercoded', year: '2026', lore: 'Tus pasos pintan luz y componen música.', links: '', assets: [], gen: 'pulse', seed: 31, visible: true, donation: true } ] },
+    ],
+    calls: [
+      { id: 'c-2026', title: 'Convocatoria Internacional 2026', description: 'Obras transmedia: 3D, video, ilustración, videojuego e instalación digital.', terms: '1. Obra original del postulante.\n2. Formatos: imagen, video MP4, GLB/GLTF, GIF o link.\n3. El artista conserva sus derechos; el museo obtiene licencia de exhibición no exclusiva durante la muestra.\n4. La selección es curatorial e inapelable.\n5. Los datos se usan sólo para contactar al postulante.', deadline: '2026-12-12', open: true },
+      { id: 'c-foro', title: 'Line-up del Foro', description: 'DJs, músicos y performers para eventos virtuales en el anfiteatro.', terms: '1. Set original o con licencias.\n2. Duración de 30 a 90 minutos.\n3. Se transmite dentro del museo.', deadline: '2027-01-15', open: true },
+    ],
+    forum: [
+      { id: 'fo1', title: 'Nebula Sessions · DJ set', date: '2026-12-05', time: '21:00', kind: 'dj', description: 'Techno celestial en el dancefloor del anfiteatro.', assets: [], visible: true },
+      { id: 'fo2', title: 'Concierto Coral Sintético', date: '2026-12-19', time: '20:00', kind: 'concierto', description: 'Un coro generativo bajo la bóveda abierta.', assets: [], visible: true },
+    ],
+    meetings: [{ id: 'm1', name: 'Junta Ethercoded', code: 'ether-' + Math.random().toString(36).slice(2, 8), allowed: '', active: true }],
+    about: { title: 'Sobre Cyber Museum', body: 'Cyber Museum es un museo digital habitable: una catedral futurista suspendida en el cosmos donde el arte transmedia se recorre, se escucha y se comparte en tiempo real.', mission: 'Dar a artistas digitales un espacio permanente, vivo y accesible desde cualquier navegador.', credits: 'Producido por Ethercoded.' },
     submissions: [],
     settings: {
       seed: 2026,
       palette: 'lavanda',
       futureName: 'Mirador Estelar',
-      futureOpen: false,
+      futureOpen: true,
       futureKind: 'mirador',
       multiplayer: true,
       roomName: 'boveda-principal',
       adminHash: DEFAULT_ADMIN_HASH,
-      peyBackend: '',
+      stripeCurrency: 'mxn',
     },
   })
 }
 
 const EN: Record<string, Record<string, unknown>> = {
-  lobby: { name: 'Lobby · The Vault', subtitle: 'Reactive dome', description: 'The Gaussian Cloud floats at the heart of the vault: every CoDi payment ignites it, overloads its tension and shifts the light of the building.' },
+  lobby: { name: 'Lobby · The Vault', subtitle: 'Reactive dome', description: 'The Gaussian Cloud floats at the heart of the vault: every contribution ignites it, overloads its tension and shifts the light of the building.' },
   videosala: { name: 'Screening Room', subtitle: 'Virtual cinema', description: 'Continuous screenings of shorts, music videos and transmedia video art.' },
   escultura: { name: '3D Sculpture Hall', subtitle: 'Living models', description: 'Animated real-time 3D sculptures on obsidian pedestals.' },
   pintura: { name: '2D Painting Hall', subtitle: 'Still image', description: 'A traditional museum: 2D pieces and still images to contemplate slowly.' },
@@ -111,7 +151,13 @@ const EN: Record<string, Record<string, unknown>> = {
   jardin: { name: 'Digital Garden', subtitle: 'Surreal exterior', description: 'Outside the building, a unique plant is born with every payment, floating in the middle of the galaxy.' },
   temporales: { name: 'Temporary Exhibitions', subtitle: 'Open call', description: 'An international space for transmedia curators and artists: open calls, activities and contests.' },
   videojuegos: { name: 'Videogames & Interactivity', subtitle: 'Hall of portals', description: 'A hall of doors to videogames and immersive rooms where you become co-author of the experience.' },
-  futuro: { name: 'Future Space', subtitle: 'Under construction', description: 'A wing the SuperAdmin can build and open with the procedural seed.' },
+  futuro: { name: 'Star Lookout', subtitle: 'Observatory', description: 'A balcony open to the cosmos: constellations, a spiral galaxy and a ringed planet above the island.' },
+  salas: { name: 'Halls', subtitle: 'Exhibition', description: 'Halls curated from the SuperAdmin.' },
+  foro: { name: 'Forum', subtitle: 'Greco-futurist amphitheater', description: 'Virtual concerts, DJs, parties and talks under the stars.' },
+  juntas: { name: 'Meeting Room', subtitle: 'Private · 8 people', description: 'A private chamber with voice and chat, reachable only by link.' },
+  about: { title: 'About Cyber Museum', body: 'Cyber Museum is a habitable digital museum: a futurist cathedral suspended in the cosmos where transmedia art is walked, heard and shared in real time.', mission: 'Give digital artists a permanent, living space reachable from any browser.', credits: 'Produced by Ethercoded.' },
+  'c-2026': { title: 'International Open Call 2026', description: 'Transmedia works: 3D, video, illustration, videogame and digital installation.' },
+  'c-foro': { title: 'Forum line-up', description: 'DJs, musicians and performers for virtual events in the amphitheater.' },
   temp: { title: 'Ethereal Echoes of My Mind', statement: 'A visual exploration of memory, desire and identity in a digital universe.', callTitle: 'International Open Call 2026 · Transmedia works' },
   p1: { title: 'Nebula of Memory', description: 'Fragments of what we were, echoes of what we will be.', tags: ['Digital art', 'Cosmos'] },
   p2: { title: 'Obsidian Rose Window', description: 'Gothic geometry rewritten as an algorithm of light.', tags: ['Gothic', 'Geometry'] },
@@ -163,6 +209,8 @@ export function withEnglish(c: Content): Content {
   }
   Object.values(c.rooms).forEach((r) => fill(r))
   fill(c.temp, 'temp')
+  fill(c.about, 'about')
+  ;[...c.calls].forEach((o) => fill(o))
   ;[...c.artworks, ...c.films, ...c.products, ...c.games, ...c.events].forEach((o) => fill(o))
   return c
 }

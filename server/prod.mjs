@@ -3,7 +3,7 @@ import http from 'node:http'
 import { readFile, stat } from 'node:fs/promises'
 import { extname, join, normalize } from 'node:path'
 const root = new URL('../dist/', import.meta.url).pathname
-const routes = ['health', 'checkout', 'status', 'transactions', 'feed', 'webhook']
+const routes = ['health', 'checkout', 'status', 'transactions', 'feed', 'webhook', 'content', 'upload']
 const api = Object.fromEntries(await Promise.all(routes.map(async (r) => [r, (await import(`../api/${r}.js`)).default])))
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.woff2': 'font/woff2', '.woff': 'font/woff', '.glb': 'model/gltf-binary', '.ply': 'application/octet-stream', '.json': 'application/json', '.mp4': 'video/mp4' }
 http

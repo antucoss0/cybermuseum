@@ -71,13 +71,13 @@ export function landing(ui: HTMLElement, onScroll: (p: number) => void, onEnter:
     <span class="kicker">04 · ${L('Arte vivo', 'Living art')}</span>
     <h2 class="serif">${L('Cada pago enciende el museo', 'Every payment lights up the museum')}</h2>
     <p>${L('Una donación, una compra en la tienda o una flor para el jardín se convierten en luz: la nube entra en sobrecarga y fluye como líquido, la iluminación cambia de tono, el piso emite ondas y en el jardín exterior crece una planta nueva. Todos los visitantes lo ven al mismo tiempo.', 'A donation, a shop purchase or a flower for the garden turns into light: the cloud overloads and flows like liquid, the lighting changes hue, the floor sends out waves and a new plant grows in the outdoor garden. Every visitor sees it at the same time.')}</p>
-    <p class="muted">${L('Pagos CoDi vía pey con QR en vivo · modo demo cuando no hay credenciales', 'CoDi payments via pey with a live QR · demo mode when no credentials are set')}</p>
+    <p class="muted">${L('Pagos con Stripe · modo demo sin credenciales', 'Stripe payments · demo mode without credentials')}</p>
   </div></section>
   <section class="panel"><div class="card glass">
     <span class="kicker">05 · ${L('Para artistas y curadores', 'For artists and curators')}</span>
     <h2 class="serif">${L('Salas permanentes, temporales y convocatorias', 'Permanent halls, temporary shows and open calls')}</h2>
     <p>${L('Un panel SuperAdmin permite subir imágenes, video y modelos 3D, curar exposiciones temporales, abrir convocatorias, publicar eventos y generar nuevos espacios de forma procedural a partir de una semilla.', 'A SuperAdmin panel lets you upload images, video and 3D models, curate temporary exhibitions, open calls, publish events and procedurally generate new spaces from a seed.')}</p>
-    <div class="tech"><span class="chip">Three.js</span><span class="chip">WebGL</span><span class="chip">WebRTC</span><span class="chip">${L('Generativo', 'Generative')}</span><span class="chip">CoDi · pey</span><span class="chip">PWA-ready</span></div>
+    <div class="tech"><span class="chip">Three.js</span><span class="chip">WebGL</span><span class="chip">WebRTC</span><span class="chip">${L('Generativo', 'Generative')}</span><span class="chip">Stripe</span><span class="chip">PWA-ready</span></div>
   </div></section>
   <section class="panel right"><div class="card glass">
     <span class="kicker">06 · ${L('Experiencia', 'Experience')}</span>
@@ -97,7 +97,7 @@ export function landing(ui: HTMLElement, onScroll: (p: number) => void, onEnter:
     <details><summary>${L('¿Necesito instalar algo?', 'Do I need to install anything?')}</summary><p>${L('No. Funciona en cualquier navegador moderno, en computadora, tablet o celular. Si tu visor soporta WebXR, aparecen los botones VR y AR.', 'No. It runs in any modern browser on desktop, tablet or phone. If your headset supports WebXR, VR and AR buttons appear.')}</p></details>
     <details><summary>${L('¿Cómo me muevo?', 'How do I move?')}</summary><p>${L('WASD o flechas y el mouse en computadora; joystick y arrastre en pantallas táctiles; controles del visor en VR. El menú te teletransporta a cualquier sala.', 'WASD or arrows plus the mouse on desktop; joystick and drag on touch screens; controller sticks in VR. The menu teleports you to any hall.')}</p></details>
     <details><summary>${L('¿Hay otras personas dentro?', 'Are other people inside?')}</summary><p>${L('Sí. Los visitantes se conectan entre sí en tiempo real, sin servidor central: se ven caminar y pueden chatear.', 'Yes. Visitors connect to each other in real time without a central server: you see them walk and can chat.')}</p></details>
-    <details><summary>${L('¿Cómo apoyo al museo?', 'How do I support the museum?')}</summary><p>${L('Con una donación o una compra en la tienda, pagando con CoDi desde tu app bancaria. Cada pago enciende la nube y hace florecer una planta nueva en el jardín.', 'With a donation or a shop purchase, paid with CoDi from your banking app. Every payment ignites the cloud and makes a new plant bloom in the garden.')}</p></details>
+    <details><summary>${L('¿Cómo apoyo al museo?', 'How do I support the museum?')}</summary><p>${L('Con una donación o una compra en la tienda. Cada pago enciende la nube y hace florecer una planta en el jardín.', 'With a donation or a shop purchase. Every payment ignites the cloud and makes a plant bloom in the garden.')}</p></details>
     <details><summary>${L('Soy artista, ¿cómo expongo?', 'I am an artist, how do I exhibit?')}</summary><p>${L('Las convocatorias abiertas viven en la sala de Exposiciones Temporales: envías tu propuesta desde ahí y el equipo curatorial la revisa.', 'Open calls live in the Temporary Exhibitions hall: submit your proposal there and the curatorial team reviews it.')}</p></details>
   </div></section>
   <section class="panel center"><div class="card glass">
