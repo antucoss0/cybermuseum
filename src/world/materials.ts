@@ -56,15 +56,19 @@ export function floorMaterial(tile = 2, glowFrom = new THREE.Vector2(0, 0)) {
         vec2 c = floor(p);
         float chk = mod(c.x + c.y, 2.0);
         vec2 f = fract(p);
-        float vein = smoothstep(0.62, 0.0, abs(vnoise(vW.xz*0.9)*2.0-1.0 + vnoise(vW.xz*3.1)*0.3 - 0.15));
-        vec2 marbleUv = vW.xz / uTile;
+        vec2 marbleUv = f * 0.8 + 0.1;
         vec3 whiteMarble = cmSrgbToLinear(texture2D(uMarble, marbleUv).rgb);
         vec3 darkMarble = cmSrgbToLinear(texture2D(uMarbleDark, marbleUv).rgb);
-        vec3 white = whiteMarble * vec3(0.48,0.48,0.56) - vein*0.018;
-        vec3 black = darkMarble * vec3(0.12,0.12,0.17) + vein*0.018;
+        float whiteLuma = dot(whiteMarble, vec3(0.299, 0.587, 0.114));
+        float darkLuma = dot(darkMarble, vec3(0.299, 0.587, 0.114));
+        whiteMarble = vec3(whiteLuma) * vec3(0.88, 0.88, 1.0);
+        darkMarble = vec3(darkLuma) * vec3(0.78, 0.78, 0.93);
+        vec3 white = whiteMarble * vec3(0.34,0.34,0.43);
+        vec3 black = darkMarble * vec3(0.13,0.13,0.18);
         vec3 col = mix(black, white, chk);
-        float grout = 1.0 - smoothstep(0.0, 0.025, min(min(f.x,1.0-f.x), min(f.y,1.0-f.y)));
-        col = mix(col, vec3(0.05,0.04,0.09), grout*0.8);
+        float edge = min(min(f.x,1.0-f.x), min(f.y,1.0-f.y));
+        float joint = 1.0 - smoothstep(0.0015, 0.0045, edge);
+        col = mix(col, vec3(0.015,0.014,0.011), joint * 0.96);
         float d = length(vW.xz - uCenter);
         // obsidian glitter: tiny stars embedded in the stone
         vec2 gq = floor(vW.xz*14.0);

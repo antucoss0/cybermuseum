@@ -4,7 +4,7 @@ import type { Content, RoomId } from '../content/types'
 import { paint } from '../core/gen2d'
 import { Nav } from './nav'
 import { M, floorMaterial, label, shared } from './materials'
-import { archOutline, archPath, candelabra, chandelier, column, spire, vault, wall, windowFill, type Opening } from './gothic'
+import { archivolt, candelabra, chandelier, column, nave as buildNave, spire, type NaveBay, wall, windowFill } from './gothic'
 
 export const LOBBY_R = 26
 export const LOBBY_H = 18
@@ -26,24 +26,29 @@ export interface Wing {
   ang: number
   W: number
   L: number
+  H: number
   floorY: number
   open: boolean
   group: THREE.Group
+  corridorGroup: THREE.Group
+  shellGroup: THREE.Group
+  corridorBays: NaveBay[]
+  bays: NaveBay[]
   world(lx: number, lz: number, y?: number): THREE.Vector3
   rect(lcx: number, lcz: number, hw: number, hl: number, y0?: number, y1?: number, first?: boolean): void
   obstacle(lx: number, lz: number, r: number): void
   circle(lcx: number, lcz: number, r: number): void
 }
 
-export const WING_DEFS: { room: RoomId; k: number; W: number; L: number; rise?: number }[] = [
-  { room: 'videosala', k: 0, W: 18, L: 22 },
-  { room: 'escultura', k: 1, W: 22, L: 28, rise: 2.4 },
-  { room: 'pintura', k: 2, W: 14, L: 26 },
-  { room: 'tienda', k: 3, W: 16, L: 18 },
-  { room: 'jardin', k: 4, W: 44, L: 44 },
-  { room: 'temporales', k: 5, W: 16, L: 22 },
-  { room: 'videojuegos', k: 6, W: 11, L: 30 },
-  { room: 'futuro', k: 7, W: 16, L: 18 },
+export const WING_DEFS: { room: RoomId; k: number; W: number; L: number; H: number; rise?: number }[] = [
+  { room: 'videosala', k: 0, W: 18, L: 22, H: 12 },
+  { room: 'escultura', k: 1, W: 22, L: 28, H: 14, rise: 2.4 },
+  { room: 'pintura', k: 2, W: 14, L: 26, H: 11 },
+  { room: 'tienda', k: 3, W: 16, L: 18, H: 10 },
+  { room: 'jardin', k: 4, W: 44, L: 44, H: 10 },
+  { room: 'temporales', k: 5, W: 16, L: 22, H: 12 },
+  { room: 'videojuegos', k: 6, W: 11, L: 30, H: 10 },
+  { room: 'futuro', k: 7, W: 16, L: 18, H: 14 },
 ]
 
 let nebulaTex: THREE.CanvasTexture | null = null
@@ -87,26 +92,18 @@ export function galaxyWindowMat() {
   return galaxyMat
 }
 
-/** Gable end wall with pointed top (closes a vault of the same width/rise). */
-function gable(width: number, rise: number, depth: number, openings: Opening[]) {
-  const s = new THREE.Shape()
-  archPath(s, width + 0.8, rise + 0.4)
-  for (const o of openings) {
-    const p = new THREE.Path()
-    if (o.kind === 'round') p.absarc(o.x, o.y + o.h / 2, o.w / 2, 0, Math.PI * 2, true)
-    else archPath(p, o.w, o.h, o.x, o.y)
-    s.holes.push(p)
-  }
-  const g = new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: false, curveSegments: 12 })
-  g.translate(0, 0, -depth / 2)
-  return new THREE.Mesh(g, M.stone)
-}
-
 export function makeWing(root: THREE.Group, nav: Nav, def: (typeof WING_DEFS)[number], open: boolean): Wing {
   const ang = -(def.k * Math.PI) / 4
   const group = new THREE.Group()
+  group.name = `wing-content-${def.room}`
   group.rotation.y = ang
-  root.add(group)
+  const corridorGroup = new THREE.Group()
+  corridorGroup.name = `wing-corridor-${def.room}`
+  corridorGroup.rotation.y = ang
+  const shellGroup = new THREE.Group()
+  shellGroup.name = `wing-shell-${def.room}`
+  shellGroup.rotation.y = ang
+  root.add(corridorGroup, shellGroup, group)
   const c = Math.cos(ang)
   const s = Math.sin(ang)
   const floorY = def.rise ?? 0
@@ -116,9 +113,14 @@ export function makeWing(root: THREE.Group, nav: Nav, def: (typeof WING_DEFS)[nu
     ang,
     W: def.W,
     L: def.L,
+    H: def.H,
     floorY,
     open,
     group,
+    corridorGroup,
+    shellGroup,
+    corridorBays: [],
+    bays: [],
     world: (lx, lz, y = floorY) => new THREE.Vector3(lx * c + lz * s, y, -lx * s + lz * c),
     rect: (lcx, lcz, hw, hl, y0 = floorY, y1 = y0, first = false) => {
       nav.rect(def.room, lcx * c + lcz * s, -lcx * s + lcz * c, ang, hw, hl, y0, y1, undefined, first)
@@ -126,84 +128,49 @@ export function makeWing(root: THREE.Group, nav: Nav, def: (typeof WING_DEFS)[nu
     obstacle: (lx, lz, r) => nav.obstacle(lx * c + lz * s, -lx * s + lz * c, r),
     circle: (lcx, lcz, r) => nav.circle(def.room, lcx * c + lcz * s, -lcx * s + lcz * c, r, floorY),
   }
-  // corridor
+  // Short narthex
   const cLen = CORRIDOR_END - LOBBY_R
-  const cor = vault(6, def.rise ? 9.5 : 7.5, cLen, 3)
-  cor.position.z = -LOBBY_R
-  group.add(cor)
-  const cf = new THREE.Mesh(new THREE.PlaneGeometry(6, cLen), floorMaterial(1))
-  cf.rotation.x = -Math.PI / 2
-  cf.position.set(0, 0.01, -LOBBY_R - cLen / 2)
+  const narthex = buildNave({ W: 6, H: def.rise ? 9.5 : 7.5, L: cLen, bay: 3.3, entrance: false, apse: false, background: galaxyWindowMat() })
+  narthex.group.name = `narthex-${def.room}`
+  narthex.group.position.z = -LOBBY_R
+  corridorGroup.add(narthex.group)
+  w.corridorBays = narthex.bays.map((slot) => ({
+    ...slot,
+    z: slot.z - LOBBY_R,
+    anchor: slot.anchor.clone().add(new THREE.Vector3(0, 0, -LOBBY_R)),
+  }))
   if (def.rise) {
     const steps = 12
     for (let i = 0; i < steps; i++) {
       const st = new THREE.Mesh(new THREE.BoxGeometry(5.6, ((i + 1) / steps) * def.rise, cLen / steps), i % 2 ? M.obsidian : M.stoneLight)
       st.position.set(0, (((i + 1) / steps) * def.rise) / 2, -LOBBY_R - (i + 0.5) * (cLen / steps))
-      group.add(st)
+      corridorGroup.add(st)
       const led = new THREE.Mesh(new THREE.BoxGeometry(5.6, 0.03, 0.04), M.neonSoft)
       led.position.set(0, ((i + 1) / steps) * def.rise + 0.01, -LOBBY_R - i * (cLen / steps) - 0.02)
-      group.add(led)
+      corridorGroup.add(led)
     }
-  } else group.add(cf)
+  }
   for (const side of [-1, 1]) {
-    const strip = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, cLen), M.neon)
-    strip.position.set(side * 2.85, (def.rise ?? 0) + 0.12, -LOBBY_R - cLen / 2)
-    group.add(strip)
+    const strip = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.025, cLen), M.neonSoft)
+    strip.position.set(side * 2.82, (def.rise ?? 0) + 0.12, -LOBBY_R - cLen / 2)
+    corridorGroup.add(strip)
   }
   w.rect(0, -LOBBY_R - cLen / 2 + 1.25, 2.9, cLen / 2 + 2.5, 0, floorY)
 
   if (def.room === 'jardin') return w
 
-  // room shell
-  const H = 11
+  // Exhibition nave
   const z0 = -CORRIDOR_END
-  const shell = new THREE.Group()
-  shell.position.set(0, floorY, z0)
-  group.add(shell)
-  const v = vault(def.W, H, def.L, 4)
-  shell.add(v)
-  const entry = gable(def.W, H, 0.8, [{ x: 0, y: 0, w: 5.2, h: 7.5 }, { x: 0, y: 8.2, w: 2.2, h: 2.2, kind: 'round' }])
-  shell.add(entry)
-  const back = gable(def.W, H, 0.8, [{ x: 0, y: 4.5, w: 4.2, h: 4.2, kind: 'round' }])
-  back.position.z = -def.L
-  shell.add(back)
-  const rose = windowFill(4.2, 4.2, true)
-  rose.position.set(0, 4.5, -def.L + 0.2)
-  shell.add(rose)
-  const roseBg = new THREE.Mesh(new THREE.CircleGeometry(2.1, 32), galaxyWindowMat())
-  roseBg.position.set(0, 6.6, -def.L - 0.05)
-  shell.add(roseBg)
-  const door = archOutline(5.2, 7.5, 0.07)
-  door.position.set(0, 0, 0.42)
-  shell.add(door)
-  const f = new THREE.Mesh(new THREE.PlaneGeometry(def.W, def.L), floorMaterial(2, new THREE.Vector2(0, 0)))
-  f.rotation.x = -Math.PI / 2
-  f.position.set(0, 0.01, -def.L / 2)
-  shell.add(f)
-  // side galaxy windows
-  const nWin = Math.max(2, Math.floor(def.L / 6))
-  const gmat = galaxyWindowMat()
-  for (let i = 0; i < nWin; i++) {
-    const z = -((i + 0.5) / nWin) * def.L
-    for (const side of [-1, 1]) {
-      const wf = windowFill(1.8, 4.2)
-      wf.position.set(side * (def.W / 2 - 0.04), 2.6, z)
-      wf.rotation.y = -side * (Math.PI / 2)
-      shell.add(wf)
-      const bg = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 4.2), gmat)
-      bg.position.set(side * (def.W / 2 + 0.02), 4.5, z)
-      bg.rotation.y = -side * (Math.PI / 2)
-      shell.add(bg)
-    }
-  }
-  for (const side of [-1, 1]) {
-    const strip = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, def.L), M.neon)
-    strip.position.set(side * (def.W / 2 - 0.1), 0.1, -def.L / 2)
-    shell.add(strip)
-    const top = strip.clone()
-    top.position.y = 7.2
-    shell.add(top)
-  }
+  const bayCount = Math.max(2, Math.round(def.L / (def.W / 2)))
+  const roomNave = buildNave({ W: def.W, H: def.H, L: def.L, bay: def.L / bayCount, background: galaxyWindowMat() })
+  roomNave.group.name = `nave-${def.room}`
+  roomNave.group.position.set(0, floorY, z0)
+  shellGroup.add(roomNave.group)
+  w.bays = roomNave.bays.map((slot) => ({
+    ...slot,
+    z: slot.z + z0,
+    anchor: slot.anchor.clone().add(new THREE.Vector3(0, floorY, z0)),
+  }))
   if (open) {
     w.rect(0, z0 - def.L / 2, def.W / 2, def.L / 2 - 0.3)
   } else {
@@ -212,15 +179,18 @@ export function makeWing(root: THREE.Group, nav: Nav, def: (typeof WING_DEFS)[nu
       new THREE.MeshBasicMaterial({ color: new THREE.Color('#9b7bff').multiplyScalar(0.9), transparent: true, opacity: 0.35, toneMapped: false, depthWrite: false }),
     )
     veil.position.set(0, 3.75, 0.5)
-    shell.add(veil)
+    roomNave.group.add(veil)
     const l = label(L('Próximamente', 'Coming soon'), L('en construcción', 'under construction'), 4.4)
     l.position.set(0, 3.5, 0.62)
-    shell.add(l)
+    roomNave.group.add(l)
   }
   return w
 }
 
-export function buildLobby(root: THREE.Group, nav: Nav, content: Content) {
+export function buildLobby(parent: THREE.Group, nav: Nav, content: Content) {
+  const root = new THREE.Group()
+  root.name = 'lobby'
+  parent.add(root)
   const apo = LOBBY_R
   const side = 2 * apo * Math.tan(Math.PI / SIDES)
   const floor = new THREE.Mesh(new THREE.CircleGeometry(apo + 1.2, 64), floorMaterial(2.2))
@@ -248,7 +218,7 @@ export function buildLobby(root: THREE.Group, nav: Nav, content: Content) {
       const k = i / 2
       const def = WING_DEFS.find((d) => d.k === k)!
       const info = content.rooms[def.room]
-      const fr = archOutline(5, 7.5, 0.08)
+      const fr = archivolt(5, 7.5)
       fr.position.z = 0.55
       panel.add(fr)
       const rw = windowFill(3.6, 3.6, true)
@@ -423,5 +393,5 @@ export function buildLobby(root: THREE.Group, nav: Nav, content: Content) {
   title.scale.setScalar(1.8)
   title.userData.billboard = true
   root.add(title)
-  return { chandeliers, altar, title }
+  return { group: root, chandeliers, altar, title }
 }
