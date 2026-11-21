@@ -416,9 +416,9 @@ async function enterMuseum(profile: { kind: AvatarKind; name: string }) {
   let inMeeting = false
   if (meetCode) {
     const r = await fetch(`./api/content?meet=${encodeURIComponent(meetCode)}&name=${encodeURIComponent(profile.name)}`, { cache: 'no-store' }).catch(() => null)
-    if (r && r.status !== 503) {
-      const j = r.ok ? await r.json() : null
-      meeting = j?.meeting
+    const j = r && r.status !== 503 ? await r.json().catch(() => null) : null
+    if (j) {
+      meeting = j.meeting
       inMeeting = Boolean(j?.allowed)
     } else {
       const guests = meeting?.allowed.split(/\n|,/).map((x) => x.trim().toLowerCase()).filter(Boolean) ?? []

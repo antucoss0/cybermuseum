@@ -119,7 +119,7 @@ export function openAdmin(ui: HTMLElement, onClose: () => void) {
     el.remove()
     onClose()
   }
-  if (sessionStorage.getItem('cm.admin') === DEFAULT_ADMIN_HASH) return panel(el, close)
+  if (sessionStorage.getItem('cm.adminPin')) return panel(el, close)
   el.innerHTML = `<div class="login glass"><span class="star">✦</span><h2 class="serif">SuperAdmin</h2><p class="note">${L('Introduce el PIN de acceso', 'Enter the access PIN')}</p>
     <div class="pin">${'<i></i>'.repeat(4)}</div>
     <div class="pad">${[1, 2, 3, 4, 5, 6, 7, 8, 9, '', 0, '⌫'].map((k) => (k === '' ? '<span></span>' : `<button type="button" data-k="${k}">${k}</button>`)).join('')}</div>
@@ -135,9 +135,9 @@ export function openAdmin(ui: HTMLElement, onClose: () => void) {
     const hash = await sha(pin)
     const server = await fetch('./api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin, kind: 'admin' }) }).then((r) => r.status).catch(() => 0)
     if (server === 200 || (server !== 401 && hash === DEFAULT_ADMIN_HASH)) {
-      content.pull()
       sessionStorage.setItem('cm.admin', hash)
       sessionStorage.setItem('cm.adminPin', pin)
+      content.pull()
       window.removeEventListener('keydown', onKey)
       panel(el, close)
     } else {
