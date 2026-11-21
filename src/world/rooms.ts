@@ -800,6 +800,36 @@ const builders: Partial<Record<RoomId, Builder>> = {
     w.group.add(flags)
     const trunkMat = new THREE.MeshStandardMaterial({ color: '#2b2130', metalness: 0.05, roughness: 0.95 })
     const hedgeMat = new THREE.MeshStandardMaterial({ color: '#18261c', roughness: 0.95 })
+    const treeMat = new THREE.MeshStandardMaterial({ color: '#334936', roughness: 0.92 })
+    const treeCount = 6
+    const treeTrunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.16, 0.28, 4.2, 8), trunkMat, treeCount)
+    const treeCanopies = new THREE.InstancedMesh(new THREE.ConeGeometry(2.1, 4, 8), treeMat, treeCount)
+    const treeCrowns = new THREE.InstancedMesh(new THREE.ConeGeometry(1.55, 3.4, 8), treeMat, treeCount)
+    const treeTransform = new THREE.Object3D()
+    for (let i = 0; i < treeCount; i++) {
+      const angle = (i / treeCount) * Math.PI * 2 + 0.25
+      const lx = Math.cos(angle) * 19
+      const lz = cz + Math.sin(angle) * 19
+      const scale = 0.9 + rng() * 0.2
+      treeTransform.position.set(lx, w.floorY + 2.1 * scale, lz)
+      treeTransform.rotation.set(0, angle, 0)
+      treeTransform.scale.set(1, scale, 1)
+      treeTransform.updateMatrix()
+      treeTrunks.setMatrixAt(i, treeTransform.matrix)
+      treeTransform.position.y = w.floorY + 4.7 * scale
+      treeTransform.scale.set(1.08, scale, 1.08)
+      treeTransform.updateMatrix()
+      treeCanopies.setMatrixAt(i, treeTransform.matrix)
+      treeTransform.position.y = w.floorY + 6.15 * scale
+      treeTransform.scale.set(0.95, scale, 0.95)
+      treeTransform.updateMatrix()
+      treeCrowns.setMatrixAt(i, treeTransform.matrix)
+      w.obstacle(lx, lz, 0.7)
+    }
+    treeTrunks.instanceMatrix.needsUpdate = true
+    treeCanopies.instanceMatrix.needsUpdate = true
+    treeCrowns.instanceMatrix.needsUpdate = true
+    w.group.add(treeTrunks, treeCanopies, treeCrowns)
     for (let i = 0; i < 28; i++) {
       const a = (i / 28) * Math.PI * 2
       const lx = Math.cos(a) * (R + 0.5)
