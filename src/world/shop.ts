@@ -64,7 +64,10 @@ export function shopDecor(w: Wing, c: Content) {
   g.add(rack)
   const pod = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.6, 0.4, 32), new THREE.MeshStandardMaterial({ color: '#0d0b16', metalness: 0.8, roughness: 0.2 }))
   pod.position.y = 0.2
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.018, 6, 64), new THREE.MeshBasicMaterial({ color: '#b89cff', toneMapped: false }))
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(1.5, 0.01, 4, 64),
+    new THREE.MeshBasicMaterial({ color: '#c9a86a', transparent: true, opacity: 0.32, depthWrite: false, toneMapped: false }),
+  )
   ring.rotation.x = Math.PI / 2
   ring.position.y = 0.42
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 2.6, 8), new THREE.MeshStandardMaterial({ color: '#d9d4e8', metalness: 1, roughness: 0.2 }))

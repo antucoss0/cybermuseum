@@ -689,7 +689,10 @@ const builders: Partial<Record<RoomId, Builder>> = {
     const pool = new THREE.Mesh(new THREE.CircleGeometry(4.5, 48), new THREE.MeshStandardMaterial({ color: '#0a0920', metalness: 1, roughness: 0.05 }))
     pool.rotation.x = -Math.PI / 2
     local(w, pool, 0, cz, 0.03)
-    const poolRing = new THREE.Mesh(new THREE.TorusGeometry(4.6, 0.08, 6, 64), M.neon)
+    const poolRing = new THREE.Mesh(
+      new THREE.TorusGeometry(4.6, 0.012, 4, 64),
+      new THREE.MeshBasicMaterial({ color: '#c9a86a', transparent: true, opacity: 0.32, depthWrite: false, toneMapped: false }),
+    )
     poolRing.rotation.x = Math.PI / 2
     local(w, poolRing, 0, cz, 0.08)
     w.obstacle(0, cz, 4.7)

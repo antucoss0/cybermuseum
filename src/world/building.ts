@@ -281,8 +281,9 @@ export function buildLobby(parent: THREE.Group, nav: Nav, content: Content) {
     root.add(sp)
   }
   // galleries / LED bands
+  const lobbyLed = new THREE.MeshBasicMaterial({ color: new THREE.Color('#b89cff').multiplyScalar(0.6), toneMapped: false })
   for (const y of [0.08, 8.2, 13.6, LOBBY_H - 0.1]) {
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(apo / Math.cos(Math.PI / SIDES) - 0.75, 0.05, 6, SIDES), M.neon)
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(apo / Math.cos(Math.PI / SIDES) - 0.75, 0.02, 4, SIDES), lobbyLed)
     ring.rotation.x = Math.PI / 2
     ring.rotation.z = Math.PI / SIDES
     ring.position.y = y
@@ -346,13 +347,13 @@ export function buildLobby(parent: THREE.Group, nav: Nav, content: Content) {
   }
   for (const t of [0.35, 0.7]) {
     const rr = Math.cos(t * (Math.PI / 2)) * domeR
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(rr, 0.06, 5, 48), M.neonSoft)
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(rr, 0.02, 4, 48), lobbyLed)
     ring.rotation.x = Math.PI / 2
     ring.position.y = LOBBY_H + Math.sin(t * (Math.PI / 2)) * domeR * domeY
     root.add(ring)
   }
   const oculusY = LOBBY_H + Math.sin(0.93 * (Math.PI / 2)) * domeR * domeY
-  const oculus = new THREE.Mesh(new THREE.TorusGeometry(Math.cos(0.93 * (Math.PI / 2)) * domeR, 0.12, 6, 32), M.neon)
+  const oculus = new THREE.Mesh(new THREE.TorusGeometry(Math.cos(0.93 * (Math.PI / 2)) * domeR, 0.02, 4, 32), lobbyLed)
   oculus.rotation.x = Math.PI / 2
   oculus.position.y = oculusY
   root.add(oculus)
@@ -365,11 +366,12 @@ export function buildLobby(parent: THREE.Group, nav: Nav, content: Content) {
   const disk = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 3.8, 0.45, 32), M.obsidian)
   disk.position.y = 0.22
   altar.add(disk)
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(3.6, 0.06, 6, 64), M.neon)
+  const marker = new THREE.MeshBasicMaterial({ color: '#c9a86a', transparent: true, opacity: 0.32, depthWrite: false, toneMapped: false })
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(3.6, 0.012, 4, 64), marker)
   ring.rotation.x = Math.PI / 2
   ring.position.y = 0.47
   altar.add(ring)
-  const ring2 = new THREE.Mesh(new THREE.TorusGeometry(2.4, 0.03, 6, 64), M.neonSoft)
+  const ring2 = new THREE.Mesh(new THREE.TorusGeometry(2.4, 0.008, 4, 64), marker)
   ring2.rotation.x = Math.PI / 2
   ring2.position.y = 0.48
   altar.add(ring2)

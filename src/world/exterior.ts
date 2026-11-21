@@ -180,7 +180,10 @@ export function buildExterior(root: THREE.Group, wings: Wing[]) {
   // floating island the cathedral stands on
   const top = new THREE.Mesh(new THREE.CylinderGeometry(88, 84, 1.2, 64), new THREE.MeshStandardMaterial({ color: '#0a0910', roughness: 0.7, metalness: 0.2 }))
   top.position.y = -0.72
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(88, 0.18, 6, 128), M.neon)
+  const rim = new THREE.Mesh(
+    new THREE.TorusGeometry(88, 0.02, 4, 128),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color('#b89cff').multiplyScalar(0.5), toneMapped: false }),
+  )
   rim.rotation.x = Math.PI / 2
   rim.position.y = -0.12
   const rockGeo = new THREE.ConeGeometry(84, 64, 48, 10, true)
