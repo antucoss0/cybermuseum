@@ -9,7 +9,7 @@ import { Emitter, esc, h, isTouch, money, timeAgo, uid } from '../core/util'
 import { payments, type PaymentEvent, type PaymentPurpose } from '../payments/bus'
 import { getProvider } from '../payments/provider'
 
-export const ROOM_ORDER: RoomId[] = ['lobby', 'videosala', 'escultura', 'pintura', 'tienda', 'jardin', 'temporales', 'videojuegos', 'futuro']
+export const ROOM_ORDER: RoomId[] = ['lobby', 'videosala', 'escultura', 'pintura', 'tienda', 'jardin', 'foro', 'temporales', 'videojuegos', 'futuro']
 
 export class Hud {
   el: HTMLElement

@@ -7,6 +7,7 @@ import { Nav } from './nav'
 import { CORRIDOR_END, WING_DEFS, buildLobby, makeWing, type Interactable, type Wing } from './building'
 import { buildRoom, type Hooks, type RoomRuntime } from './rooms'
 import { buildSpaces, textPanel, type SpaceHooks } from './spaces'
+import { buildExtras, type ExtraHooks } from './extras'
 
 export interface World {
   group: THREE.Group
@@ -15,6 +16,8 @@ export interface World {
   wings: Wing[]
   spawn(room: RoomId): { x: number; z: number; yaw: number }
   hallName(id?: string): string | null
+  forumSpawn(): { x: number; z: number; yaw: number }
+  juntasSpawn(): { x: number; z: number; yaw: number }
   tick(dt: number, t: number, here: RoomId): void
   addPlant(p: PaymentEvent, fresh: boolean): void
   chandeliers: THREE.Group[]
@@ -22,7 +25,7 @@ export interface World {
   dispose(): void
 }
 
-export function buildWorld(c: Content, hooks: Hooks & SpaceHooks): World {
+export function buildWorld(c: Content, hooks: Hooks & SpaceHooks & ExtraHooks): World {
   const group = new THREE.Group()
   const nav = new Nav()
   const interactables: Interactable[] = []
@@ -40,6 +43,7 @@ export function buildWorld(c: Content, hooks: Hooks & SpaceHooks): World {
   const lobby = buildLobby(group, nav, c)
   const exterior = buildExterior(group, wings)
   const spaces = buildSpaces(group, nav, c, wings, add, hooks)
+  const extras = buildExtras(group, nav, c, wings, add, hooks)
   for (const [x, title, body, col, act] of [
     [7, L('Convocatorias', 'Open calls'), L('Lee los términos y postúlate', 'Read the terms and apply'), '#ff9be9', () => hooks.openCalls()],
     [-7, tx(c.about, 'title'), L('Ethercoded · la historia del museo', 'Ethercoded · the museum story'), '#8fb4ff', () => hooks.openAbout()],
@@ -64,6 +68,8 @@ export function buildWorld(c: Content, hooks: Hooks & SpaceHooks): World {
     chandeliers: lobby.chandeliers,
     title: lobby.title,
     hallName: spaces.hallName,
+    forumSpawn: extras.forumSpawn,
+    juntasSpawn: extras.juntasSpawn,
     spawn(room) {
       if (room === 'lobby') return { x: 0, z: 17, yaw: 0 }
       const w = wings.find((x) => x.room === room)
@@ -74,6 +80,7 @@ export function buildWorld(c: Content, hooks: Hooks & SpaceHooks): World {
     tick(dt, t, here) {
       exterior.tick(t)
       spaces.tick(dt, t)
+      extras.tick(t)
       for (const r of runtimes) r.tick(dt, t, here)
     },
     addPlant(p, fresh) {

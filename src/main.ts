@@ -19,6 +19,7 @@ import { shared } from './world/materials'
 import { buildWorld, type World } from './world/world'
 import type { Hooks } from './world/rooms'
 import type { SpaceHooks } from './world/spaces'
+import type { ExtraHooks } from './world/extras'
 import { Controller } from './player/controller'
 import { createAvatar, type Avatar, type AvatarKind } from './player/avatar'
 import { Hud } from './ui/hud'
@@ -60,7 +61,7 @@ let controller: Controller | null = null
 const multi = new Multi()
 let me: { kind: AvatarKind; name: string } | null = null
 
-const hooks: Hooks & SpaceHooks = {
+const hooks: Hooks & SpaceHooks & ExtraHooks = {
   openPiece: (h, p) => hud?.openPiece(h, p),
   openHall: (h) => hud?.openHall(h),
   openUrl: (url) => window.open(url, '_blank', 'noopener'),
@@ -80,6 +81,11 @@ const hooks: Hooks & SpaceHooks = {
   donate: () => hud?.openPay(100, controller?.room === 'jardin' ? L('Una flor para el jardín', 'A flower for the garden') : L('Ofrenda a la nube', 'Offering to the cloud'), controller?.room === 'jardin' ? 'jardin' : 'donacion'),
   nextFilm: () => {},
   openCatalog: (play) => hud?.openCatalog(play),
+  voice: () =>
+    multi
+      .voice()
+      .then((on) => hud?.toast(L('Micrófono', 'Microphone'), on ? L('Activo · te escuchan en la sala', 'Live · the room can hear you') : L('Silenciado', 'Muted')))
+      .catch(() => hud?.toast(L('Micrófono', 'Microphone'), L('Permiso denegado', 'Permission denied'))),
   sit: (eye, look) => {
     seat = { eye: eye.clone(), look: look.clone() }
     hud?.setPrompt(L('Levantarse', 'Stand up'))
@@ -189,7 +195,7 @@ function startGame(g: GameDoor) {
 }
 
 function place(room: RoomId) {
-  const s = world.spawn(room)
+  const s = room === 'foro' ? world.forumSpawn() : room === 'juntas' ? world.juntasSpawn() : world.spawn(room)
   controller?.place(s.x, s.z, s.yaw)
 }
 
@@ -403,14 +409,23 @@ async function enterMuseum(profile: { kind: AvatarKind; name: string }) {
     hud!.chat(profile.name, text)
     multi.say(text)
   })
-  const start = (params.get('room') as RoomId) || 'lobby'
+  const meetCode = params.get('meet')
+  const meeting = meetCode ? content.data.meetings.find((m) => m.active && m.code === meetCode) : undefined
+  const guests = meeting?.allowed.split(/\n|,/).map((x) => x.trim().toLowerCase()).filter(Boolean) ?? []
+  const inMeeting = Boolean(meeting && (!guests.length || guests.includes(profile.name.trim().toLowerCase())))
+  if (meetCode && !inMeeting) hud.toast(L('Sala de juntas', 'Meeting room'), meeting ? L('Tu nombre no está en la lista de invitados', 'Your name is not on the guest list') : L('Enlace inválido o inactivo', 'Invalid or inactive link'))
+  const start = inMeeting ? 'juntas' : (params.get('room') as RoomId) || 'lobby'
   place(start)
   controller.enabled = true
   hud.setRoom(controller.room)
   hud.toast(L('Bienvenido', 'Welcome'), profile.name)
   hud.chat('', isTouch() ? L('Usa el joystick para caminar y arrastra para mirar.', 'Use the joystick to walk and drag to look around.') : L('Bienvenido a Cyber Museum. Presiona Enter para chatear.', 'Welcome to Cyber Museum. Press Enter to chat.'), true)
   if (content.data.settings.multiplayer && !params.has('solo')) {
-    multi.start(content.data.settings.roomName, { name: profile.name, kind: profile.kind })
+    multi.start(inMeeting ? `juntas-${meeting!.code}` : content.data.settings.roomName, { name: profile.name, kind: profile.kind })
+    if (inMeeting)
+      setTimeout(() => {
+        if (multi.peers.size >= 8) hud?.toast(L('Sala llena', 'Room full'), L('La sala de juntas admite 8 personas', 'The meeting room holds 8 people'))
+      }, 5000)
     hud.setOnline(1, multi.connected)
   }
 }
