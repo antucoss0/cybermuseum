@@ -18,7 +18,7 @@ export interface World {
   hallName(id?: string): string | null
   forumSpawn(): { x: number; z: number; yaw: number }
   juntasSpawn(): { x: number; z: number; yaw: number }
-  tick(dt: number, t: number, here: RoomId): void
+  tick(dt: number, t: number, here: RoomId, cinematic?: boolean, hallId?: string): void
   addPlant(p: PaymentEvent, fresh: boolean): void
   chandeliers: THREE.Group[]
   title: THREE.Object3D
@@ -41,7 +41,10 @@ export function buildWorld(c: Content, hooks: Hooks & SpaceHooks & ExtraHooks): 
     if (open) runtimes.push(buildRoom(w, c, add, hooks))
   }
   const lobby = buildLobby(group, nav, c)
-  const exterior = buildExterior(group, wings)
+  const exteriorGroup = new THREE.Group()
+  exteriorGroup.name = 'exterior'
+  group.add(exteriorGroup)
+  const exterior = buildExterior(exteriorGroup, wings)
   const spaces = buildSpaces(group, nav, c, wings, add, hooks)
   const extras = buildExtras(group, nav, c, wings, add, hooks)
   for (const [x, title, body, col, act] of [
@@ -54,7 +57,7 @@ export function buildWorld(c: Content, hooks: Hooks & SpaceHooks & ExtraHooks): 
     const back = k.clone()
     back.rotation.y += Math.PI
     back.position.x += x > 0 ? 0.02 : -0.02
-    group.add(k, back)
+    lobby.group.add(k, back)
     add({ id: 'kiosk' + x, pos: new THREE.Vector3(x > 0 ? x - 1.4 : x + 1.4, 0, 0), r: 2, label: title, room: 'lobby', action: act })
   }
   add({ id: 'altar', pos: new THREE.Vector3(0, 0, 4.6), r: 2.2, label: L('Ofrenda · encender la nube', 'Offering · light the cloud'), room: 'lobby', action: () => hooks.donate() })
@@ -74,15 +77,29 @@ export function buildWorld(c: Content, hooks: Hooks & SpaceHooks & ExtraHooks): 
       if (room === 'lobby') return { x: 0, z: 17, yaw: 0 }
       const w = wings.find((x) => x.room === room)
       if (!w) return { x: 0, z: 17, yaw: 0 }
-      const p = w.world(0, room === 'jardin' ? -CORRIDOR_END - 8 : -CORRIDOR_END - 3)
+      const p = w.world(0, room === 'jardin' ? -CORRIDOR_END - 8 : -CORRIDOR_END - 9)
       return { x: p.x, z: p.z, yaw: (w.k * Math.PI) / 4 }
     },
-    tick(dt, t, here) {
+    tick(dt, t, here, cinematic = false, hallId) {
       exterior.tick(t)
       spaces.tick(dt, t)
       extras.tick(t)
       tickShop(t)
       for (const r of runtimes) r.tick(dt, t, here)
+      const showAll = cinematic
+      const showGarden = here === 'jardin' || here === 'foro'
+      lobby.group.visible = showAll || here !== 'salas'
+      for (const w of wings) {
+        const selected = here === w.room
+        const showShell = showAll || here === 'lobby' || selected || (showGarden && w.room === 'jardin')
+        w.corridorGroup.visible = showShell
+        w.shellGroup.visible = showShell
+        w.group.visible = showAll || selected || (showGarden && w.room === 'jardin')
+      }
+      for (const [id, hall] of spaces.groups) hall.visible = showAll || (here === 'salas' && id === hallId)
+      if (extras.forumGroup) extras.forumGroup.visible = showAll || showGarden
+      extras.juntasGroup.visible = showAll || here === 'juntas'
+      exteriorGroup.visible = showAll || showGarden
     },
     addPlant(p, fresh) {
       garden?.addPlant?.(p, fresh)

@@ -20,6 +20,7 @@ export function buildExtras(root: THREE.Group, nav: Nav, c: Content, wings: Wing
   const ticks: ((t: number) => void)[] = []
   const gw = wings.find((w) => w.room === 'jardin')
   let forumSpawn = { x: 0, z: 0, yaw: 0 }
+  let forumGroup: THREE.Group | null = null
   if (gw) {
     const gz = -CORRIDOR_END - 22
     gw.rect(0, gz - 25, 2.2, 4)
@@ -29,6 +30,8 @@ export function buildExtras(root: THREE.Group, nav: Nav, c: Content, wings: Wing
     const ctr = gw.world(0, gz - 45)
     const ang = (gw.k * Math.PI) / 4
     const g = new THREE.Group()
+    g.name = 'foro'
+    forumGroup = g
     g.position.copy(ctr)
     g.rotation.y = -ang
     root.add(g)
@@ -104,6 +107,7 @@ export function buildExtras(root: THREE.Group, nav: Nav, c: Content, wings: Wing
 
   // --- private meeting chamber (no public door) ---
   const j = new THREE.Group()
+  j.name = 'juntas'
   j.position.copy(JUNTAS)
   root.add(j)
   nav.rect('juntas', JUNTAS.x, JUNTAS.z, 0, 7, 6, 0, 0, 'juntas')
@@ -144,6 +148,8 @@ export function buildExtras(root: THREE.Group, nav: Nav, c: Content, wings: Wing
   add({ id: 'juntas-exit', pos: new THREE.Vector3(JUNTAS.x, 0, JUNTAS.z + 4.6), r: 1.6, label: L('Salir al lobby', 'Exit to lobby'), room: 'juntas', action: () => hooks.goto({ x: 0, z: 9, yaw: 0 }, 'Lobby', L('Regresando a', 'Back to')) })
 
   return {
+    forumGroup,
+    juntasGroup: j,
     forumSpawn: () => forumSpawn,
     juntasSpawn: () => ({ x: JUNTAS.x, z: JUNTAS.z + 4, yaw: 0 }),
     tick: (t: number) => ticks.forEach((f) => f(t)),

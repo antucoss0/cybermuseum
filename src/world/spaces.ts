@@ -2,11 +2,13 @@ import * as THREE from 'three'
 import { L, tx } from '../core/i18n'
 import type { Content, Hall, HallKind, Piece, RoomId } from '../content/types'
 import { M } from './materials'
-import { archOutline, column } from './gothic'
+import { archivolt, column, nave as buildNave } from './gothic'
+import type { NaveBay } from './gothic'
 import { sculpture, textureFor } from './art'
 import { LOBBY_R, type Interactable, type Wing } from './building'
 import type { Nav } from './nav'
 import { fit, loadGLB, tame } from './assets'
+import { P } from './pbr'
 
 export interface SpaceHooks {
   openPiece(h: Hall, p: Piece): void
@@ -102,9 +104,9 @@ export function portalMat(color: string) {
 export function portalDoor(color: string, w = 2.2, h = 3.6) {
   const g = new THREE.Group()
   const surf = new THREE.Mesh(new THREE.PlaneGeometry(w, h), portalMat(color))
-  surf.position.y = h / 2
+  surf.position.set(0, h / 2, 0.035)
   g.add(surf)
-  const arch = archOutline(w + 0.3, h + 0.5, 0.09)
+  const arch = archivolt(w + 0.3, h + 0.5)
   g.add(arch)
   for (const s of [-1, 1]) {
     const c = column(h + 0.4, 0.14)
@@ -161,103 +163,221 @@ export function buildSpaces(root: THREE.Group, nav: Nav, c: Content, wings: Wing
   const live = (h: Hall) => h.visible && (!h.start || h.start <= today || h.kind === 'games') && (!h.end || h.end >= today)
   const halls = c.halls.filter(live)
   const entries = new Map<string, { x: number; z: number; yaw: number }>()
+  const returns = new Map<string, { x: number; z: number; yaw: number }>()
+  const hallGroups = new Map<string, THREE.Group>()
   const mixers: THREE.AnimationMixer[] = []
-  const swirl: THREE.Object3D[] = []
   const ticks: ((t: number) => void)[] = []
-  const back = (kind: HallKind, i: number) => {
-    const w = wings.find((x) => x.room === HALL_WING[kind])!
-    const p = w.world(i % 2 ? 1.2 : -1.2, -LOBBY_R - 3 - Math.floor(i / 2) * 4)
-    return { x: p.x, z: p.z, yaw: (w.k * Math.PI) / 4 }
-  }
 
-  // --- portal doors in the wing corridors ---
-  const perKind: Record<string, number> = {}
+  const slots = new Map<RoomId, NaveBay[]>()
+  const fallbackSlots = new Map<RoomId, NaveBay[]>()
+  for (const w of wings) {
+    slots.set(w.room, [...w.bays].sort((a, b) => b.z - a.z || a.side - b.side))
+    const sideCount: Record<number, number> = { [-1]: 0, [1]: 0 }
+    fallbackSlots.set(
+      w.room,
+      [...w.corridorBays]
+        .sort((a, b) => b.z - a.z || a.side - b.side)
+        .filter((bay) => {
+          if (sideCount[bay.side] >= 2) return false
+          sideCount[bay.side]++
+          return true
+        }),
+    )
+  }
+  const wingSlotIndex = new Map<RoomId, number>()
+  const fallbackIndex = new Map<RoomId, number>()
+
   for (const hall of halls) {
     const w = wings.find((x) => x.room === HALL_WING[hall.kind])
     if (!w || !w.open) continue
-    const i = (perKind[hall.kind] = (perKind[hall.kind] ?? -1) + 1)
-    if (i > 3) continue
-    const side = i % 2 ? 1 : -1
-    const lz = -LOBBY_R - 3 - Math.floor(i / 2) * 4
-    const y = w.floorY * Math.min(1, Math.max(0, (-lz - LOBBY_R) / 10))
-    const door = portalDoor(hall.color, 1.9, 3.2)
-    door.position.set(side * 2.92, y, lz)
-    door.rotation.y = -side * Math.PI / 2
-    w.group.add(door)
-    const sign = textPanel(tx(hall, 'name'), tx(hall, 'theme'), 2.1, 0.62, hall.color)
-    sign.position.set(0, 4.15, 0.05)
-    door.add(sign)
-    swirl.push(door)
-    const ip = w.world(side * 1.6, lz, y)
+    const index = wingSlotIndex.get(w.room) ?? 0
+    wingSlotIndex.set(w.room, index + 1)
+    let bay = slots.get(w.room)?.[index]
+    let inNarthex = false
+    if (!bay) {
+      const fallback = fallbackIndex.get(w.room) ?? 0
+      fallbackIndex.set(w.room, fallback + 1)
+      bay = fallbackSlots.get(w.room)?.[fallback]
+      inNarthex = true
+    }
+    if (!bay) continue
+
+    bay.chapel = true
+    bay.niche.visible = false
+    bay.chapelGroup.visible = true
+    const portal = portalDoor(hall.color, 2.35, 4.2)
+    portal.position.set(0, 0, -2.72)
+    bay.chapelGroup.add(portal)
+    const plaque = new THREE.Mesh(new THREE.BoxGeometry(3.18, 0.94, 0.14), M.obsidian)
+    plaque.position.set(0, 6.02, 0.08)
+    const plaqueTop = new THREE.Mesh(new THREE.BoxGeometry(3.28, 0.035, 0.045), M.gold)
+    plaqueTop.position.set(0, 6.48, 0.17)
+    const plaqueBottom = plaqueTop.clone()
+    plaqueBottom.position.y = 5.56
+    const plaqueText = textPanel(tx(hall, 'name'), tx(hall, 'theme').slice(0, 40), 2.92, 0.72, hall.color)
+    plaqueText.position.set(0, 6.02, 0.17)
+    const underArch = new THREE.Mesh(
+      new THREE.BoxGeometry(2.75, 0.025, 0.025),
+      new THREE.MeshBasicMaterial({ color: hall.color, toneMapped: false, transparent: true, opacity: 0.7 }),
+    )
+    underArch.position.set(0, 0.11, 0.14)
+    const portalLight = new THREE.PointLight(hall.color, 4, 9, 1.7)
+    portalLight.position.set(0, 4.2, 0.35)
+    bay.chapelGroup.add(plaque, plaqueTop, plaqueBottom, plaqueText, underArch, portalLight)
+
+    const floorY = inNarthex ? w.floorY * Math.min(1, Math.max(0, (-bay.z - LOBBY_R) / 10)) : w.floorY
+    const triggerX = bay.anchor.x - bay.side * 1.2
+    const ip = w.world(triggerX, bay.z, floorY)
+    const returnPoint = w.world(bay.anchor.x - bay.side * 1.45, bay.z, floorY)
+    returns.set(hall.id, { x: returnPoint.x, z: returnPoint.z, yaw: (w.k * Math.PI) / 4 })
     const label = hall.external ? `${L('Abrir', 'Open')} · ${tx(hall, 'name')} ↗` : `${L('Entrar', 'Enter')} · ${tx(hall, 'name')}`
-    add({ id: 'door-' + hall.id, pos: ip, r: 1.6, label, room: w.room, action: () => (hall.external ? hooks.openUrl(hall.external, tx(hall, 'name')) : hooks.goto(entries.get(hall.id)!, tx(hall, 'name'), tx(hall, 'theme'))) })
+    add({
+      id: 'chapel-' + hall.id,
+      pos: ip,
+      r: 1.8,
+      label,
+      room: w.room,
+      action: () => {
+        if (hall.external) hooks.openUrl(hall.external, tx(hall, 'name'))
+        else {
+          const target = entries.get(hall.id)
+          if (target) hooks.goto(target, tx(hall, 'name'), tx(hall, 'theme'))
+        }
+      },
+    })
   }
 
-  // --- the halls themselves, built off the main island ---
-  halls.filter((h) => !h.external).forEach((hall, n) => {
+  halls.filter((hall) => !hall.external).forEach((hall, n) => {
     const pieces = hall.pieces.filter((p) => p.visible)
-    const W = 14
-    const Lh = Math.max(18, 8 + Math.ceil(pieces.length / 2) * 5)
+    const W = 12
+    const H = 11
+    const Lh = Math.max(20, 8 + Math.ceil(pieces.length / 2) * 5.5)
     const cx = BASE_X + n * 40
     const cz = 0
     const g = new THREE.Group()
-    g.position.set(cx, 0, cz)
+    g.name = `hall-${hall.id}`
+    g.position.set(cx, 0, cz + Lh / 2)
     root.add(g)
+    hallGroups.set(hall.id, g)
     nav.rect('salas', cx, cz, 0, W / 2, Lh / 2, 0, 0, hall.id)
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, Lh), new THREE.MeshStandardMaterial({ color: '#1a1626', roughness: 0.35, metalness: 0.4 }))
-    floor.rotation.x = -Math.PI / 2
-    g.add(floor)
-    const H = 7
-    const tint = new THREE.MeshStandardMaterial({ color: '#15111f', roughness: 0.75, metalness: 0.1 })
-    for (const s of [-1, 1]) {
-      const wall = new THREE.Mesh(new THREE.BoxGeometry(0.4, H, Lh), tint)
-      wall.position.set(s * (W / 2 + 0.2), H / 2, 0)
-      const endw = new THREE.Mesh(new THREE.BoxGeometry(W + 0.8, H, 0.4), tint)
-      endw.position.set(0, H / 2, s * (Lh / 2 + 0.2))
-      const strip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, Lh), new THREE.MeshBasicMaterial({ color: hall.color, toneMapped: false }))
-      strip.position.set(s * (W / 2 - 0.05), H - 0.2, 0)
-      g.add(wall, endw, strip)
+    const built = buildNave({ W, H, L: Lh, bay: 5.5 })
+    g.add(built.group)
+    const lamp = new THREE.PointLight(hall.color, 9, 0, 1.7)
+    lamp.position.set(0, H - 1.1, -Lh / 3)
+    g.add(lamp)
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(6.3, 3.1, 0.18), M.obsidian)
+    frame.position.set(0, 4.25, -Lh + 0.55)
+    const frameTop = new THREE.Mesh(new THREE.BoxGeometry(6.42, 0.06, 0.06), M.gold)
+    frameTop.position.set(0, 5.82, -Lh + 0.68)
+    const frameBottom = frameTop.clone()
+    frameBottom.position.y = 2.68
+    const frameLeft = new THREE.Mesh(new THREE.BoxGeometry(0.06, 3.2, 0.06), M.gold)
+    frameLeft.position.set(-3.18, 4.25, -Lh + 0.68)
+    const frameRight = frameLeft.clone()
+    frameRight.position.x = 3.18
+    const intro = textPanel(tx(hall, 'name'), tx(hall, 'curatorial').slice(0, 180), 5.6, 2.45, hall.color, tx(hall, 'theme'))
+    intro.position.set(0, 3.02, -Lh + 0.68)
+    g.add(frame, frameTop, frameBottom, frameLeft, frameRight, intro)
+    add({
+      id: 'hall-' + hall.id,
+      pos: new THREE.Vector3(cx, 0, cz - Lh / 2 + 2.2),
+      r: 2.2,
+      label: L('Texto curatorial', 'Curatorial text'),
+      room: 'salas',
+      action: () => hooks.openHall(hall),
+    })
+
+    if (hall.kind === 'temporal') {
+      for (const side of [-1, 1]) {
+        for (let i = 0; i < Math.ceil(Lh / 7); i++) {
+          const z = -2.5 - i * 7
+          const banner = new THREE.Mesh(new THREE.BoxGeometry(0.08, 3.1, 1.35), P.velvet)
+          banner.position.set(side * (W / 2 - 0.45), 7.7, z)
+          const hem = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.045, 1.45), M.gold)
+          hem.position.set(side * (W / 2 - 0.45), 6.12, z)
+          g.add(banner, hem)
+        }
+      }
+    } else if (hall.kind === '2d') {
+      const wainscot = new THREE.MeshStandardMaterial({ color: '#211a25', roughness: 0.72, metalness: 0.15 })
+      for (const side of [-1, 1]) {
+        const paneling = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.5, Lh - 1), wainscot)
+        paneling.position.set(side * (W / 2 - 0.34), 0.78, -Lh / 2)
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.045, Lh - 1), M.gold)
+        rail.position.set(side * (W / 2 - 0.34), 1.56, -Lh / 2)
+        g.add(paneling, rail)
+      }
     }
-    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(W, Lh), new THREE.MeshStandardMaterial({ color: '#0b0912', roughness: 1 }))
-    ceil.rotation.x = Math.PI / 2
-    ceil.position.y = H
-    g.add(ceil)
-    const lamp = new THREE.PointLight(hall.color, 14, 0, 1.6)
-    lamp.position.set(0, H - 1, 0)
-    g.add(lamp, new THREE.PointLight('#ffffff', 6, 0, 1.8).translateY(H - 1).translateZ(-Lh / 4))
-    const intro = textPanel(tx(hall, 'name'), tx(hall, 'curatorial'), 5.2, 2.6, hall.color, tx(hall, 'theme'))
-    intro.position.set(0, 3, -Lh / 2 + 0.02)
-    g.add(intro)
-    add({ id: 'hall-' + hall.id, pos: new THREE.Vector3(cx, 0, cz - Lh / 2 + 2.2), r: 2.2, label: L('Texto curatorial', 'Curatorial text'), room: 'salas', action: () => hooks.openHall(hall) })
+
     pieces.forEach((p, i) => {
-      const side = i % 2 ? 1 : -1
-      const lz = Lh / 2 - 6 - Math.floor(i / 2) * 5
+      const side: -1 | 1 = i % 2 ? 1 : -1
+      const lz = -6 - Math.floor(i / 2) * 5.5
       const { obj, onWall } = pieceVisual(hall, p)
       if (obj.userData.tick) ticks.push(obj.userData.tick)
       const later = () => obj.userData.mixer && mixers.push(obj.userData.mixer)
       setTimeout(later, 4000)
-      const lx = onWall ? side * (W / 2 - 0.05) : side * (W / 2 - 2.4)
+      const lx = onWall ? side * (W / 2 - 0.1) : side * (W / 2 - (hall.kind === '3d' ? 1.4 : 2.4))
       obj.position.set(lx, 0, lz)
       obj.rotation.y = onWall ? -side * Math.PI / 2 : 0
       g.add(obj)
-      if (!onWall) nav.obstacle(cx + lx, cz + lz, 1)
+      if (!onWall) nav.obstacle(cx + lx, cz + Lh / 2 + lz, 1)
       const plaque = textPanel(tx(p, 'title'), `${p.author}${p.year ? ' · ' + p.year : ''}`, 1.5, 0.5, hall.color)
       if (onWall) plaque.position.set(0, 0.7, 0.08)
       else plaque.position.set(0, 1.25, 1.0)
       obj.add(plaque)
-      add({ id: 'pc-' + p.id, pos: new THREE.Vector3(cx + side * (W / 2 - 3.2), 0, cz + lz), r: 2, label: `${L('Ver', 'View')} · ${tx(p, 'title')}`, room: 'salas', action: () => hooks.openPiece(hall, p) })
+      if (onWall) {
+        const spot = new THREE.SpotLight(hall.kind === '2d' ? '#ffdca3' : hall.color, 18, 8, Math.PI / 5, 0.7, 1.5)
+        spot.position.set(side * (W / 2 - 0.55), 4.35, lz + 0.9)
+        spot.target.position.set(lx, 2.2, lz)
+        g.add(spot, spot.target)
+      } else if (hall.kind === '3d') {
+        const shaft = new THREE.Mesh(
+          new THREE.ConeGeometry(1.6, 7, 16, 1, true),
+          new THREE.MeshBasicMaterial({ color: '#c5d9ff', transparent: true, opacity: 0.045, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+        )
+        shaft.position.set(lx, 7.4, lz)
+        g.add(shaft)
+      }
+      add({
+        id: 'pc-' + p.id,
+        pos: new THREE.Vector3(cx + side * (W / 2 - 3.2), 0, cz + Lh / 2 + lz),
+        r: 2,
+        label: `${L('Ver', 'View')} · ${tx(p, 'title')}`,
+        room: 'salas',
+        action: () => hooks.openPiece(hall, p),
+      })
     })
+    if (hall.kind === 'games') {
+      const used = new Set(pieces.map((_, i) => Math.floor(i / 2)))
+      built.bays.forEach((bay, i) => {
+        if (used.has(i)) return
+        const surface = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 3.6), portalMat(hall.color))
+        surface.position.set(bay.side * (W / 2 - 0.28), 2.7, bay.z)
+        surface.rotation.y = -bay.side * Math.PI / 2
+        g.add(surface)
+      })
+    }
     const exit = portalDoor('#b89cff', 2, 3.4)
-    exit.position.set(0, 0, Lh / 2 - 0.1)
+    exit.position.set(0, 0, 0.16)
     exit.rotation.y = Math.PI
     g.add(exit)
-    const k = halls.filter((x) => x.kind === hall.kind).indexOf(hall)
-    add({ id: 'exit-' + hall.id, pos: new THREE.Vector3(cx, 0, cz + Lh / 2 - 1.4), r: 1.8, label: L('Salir de la sala', 'Leave the hall'), room: 'salas', action: () => hooks.goto(back(hall.kind, k), tx(c.rooms[HALL_WING[hall.kind]], 'name'), L('Regresando a', 'Back to')) })
+    add({
+      id: 'exit-' + hall.id,
+      pos: new THREE.Vector3(cx, 0, cz + Lh / 2 - 1.4),
+      r: 1.8,
+      label: L('Salir de la sala', 'Leave the hall'),
+      room: 'salas',
+      action: () => {
+        const target = returns.get(hall.id)
+        if (target) hooks.goto(target, tx(c.rooms[HALL_WING[hall.kind]], 'name'), L('Regresando a', 'Back to'))
+      },
+    })
     entries.set(hall.id, { x: cx, z: cz + Lh / 2 - 2.6, yaw: 0 })
   })
 
   return {
     entries,
+    groups: hallGroups,
     hallName: (id?: string) => {
       const h = c.halls.find((x) => x.id === id)
       return h ? tx(h, 'name') : null

@@ -249,13 +249,13 @@ engine.onTick((dt, t) => {
     camera.lookAt(0, 7 + landingP * 2, 0)
     cloud.points.rotation.y = landingP * Math.PI * 1.5 + t * 0.02
     cloud.points.scale.setScalar(1 + Math.sin(landingP * Math.PI) * 0.35)
-    world.tick(dt, t, 'lobby')
+    world.tick(dt, t, 'lobby', true)
     return
   }
   if (viewHold) {
     camera.position.copy(viewHold[0])
     camera.lookAt(viewHold[1])
-    world.tick(dt, t, 'jardin')
+    world.tick(dt, t, 'jardin', mode !== 'museum')
     return
   }
   if (mode === 'cinematic' && cine) {
@@ -266,7 +266,7 @@ engine.onTick((dt, t) => {
     camera.lookAt(cine.look.getPoint(e))
     const seg = Math.min(cine.caps.length - 1, Math.floor(e * cine.caps.length))
     if (seg !== cine.seg) ((cine.seg = seg), cine.onSeg(seg))
-    world.tick(dt, t, cine.rooms[seg] ?? 'lobby')
+    world.tick(dt, t, cine.rooms[seg] ?? 'lobby', true)
     if (u >= 1) cine.end()
     return
   }
@@ -276,7 +276,8 @@ engine.onTick((dt, t) => {
     controller.avatar.group.visible = false
     camera.position.lerp(seat.eye, Math.min(1, dt * 4))
     camera.lookAt(seat.look)
-    world.tick(dt, t, controller.room)
+    const hallId = controller.room === 'salas' ? world.nav.find(controller.x, controller.z)?.name : undefined
+    world.tick(dt, t, controller.room, mode !== 'museum', hallId)
     hud.setPrompt(L('Levantarse', 'Stand up'))
     return
   }
@@ -297,7 +298,8 @@ engine.onTick((dt, t) => {
   } else controller.avatar.group.visible = true
   audio.tick(dt, controller.speed, me?.kind === 'astral')
   hud.setRoom(controller.room)
-  world.tick(dt, t, controller.room)
+  const hallId = controller.room === 'salas' ? world.nav.find(controller.x, controller.z)?.name : undefined
+  world.tick(dt, t, controller.room, mode !== 'museum', hallId)
   // nearest interactable
   let best: (typeof world.interactables)[number] | null = null
   let bd = Infinity
