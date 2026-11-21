@@ -18,6 +18,7 @@ import { createCloud } from './world/cloud'
 import { shared } from './world/materials'
 import { buildWorld, type World } from './world/world'
 import type { Hooks } from './world/rooms'
+import type { SpaceHooks } from './world/spaces'
 import { Controller } from './player/controller'
 import { createAvatar, type Avatar, type AvatarKind } from './player/avatar'
 import { Hud } from './ui/hud'
@@ -59,7 +60,18 @@ let controller: Controller | null = null
 const multi = new Multi()
 let me: { kind: AvatarKind; name: string } | null = null
 
-const hooks: Hooks = {
+const hooks: Hooks & SpaceHooks = {
+  openPiece: (h, p) => hud?.openPiece(h, p),
+  openHall: (h) => hud?.openHall(h),
+  openUrl: (url) => window.open(url, '_blank', 'noopener'),
+  goto: (target, title, kicker) => {
+    hud?.portal(kicker, title)
+    audio.whoosh()
+    setTimeout(() => controller?.place(target.x, target.z, target.yaw), 380)
+  },
+  openForum: () => hud?.openForum(),
+  openCalls: () => hud?.openCalls(),
+  openAbout: () => hud?.openAbout(),
   openArt: (a) => hud?.openArt(a),
   openShop: (p) => hud?.openShop(p),
   openGame: (g) => hud?.openGame(g, startGame),

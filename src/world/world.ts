@@ -6,6 +6,7 @@ import type { PaymentEvent } from '../payments/bus'
 import { Nav } from './nav'
 import { CORRIDOR_END, WING_DEFS, buildLobby, makeWing, type Interactable, type Wing } from './building'
 import { buildRoom, type Hooks, type RoomRuntime } from './rooms'
+import { buildSpaces, type SpaceHooks } from './spaces'
 
 export interface World {
   group: THREE.Group
@@ -13,6 +14,7 @@ export interface World {
   interactables: Interactable[]
   wings: Wing[]
   spawn(room: RoomId): { x: number; z: number; yaw: number }
+  hallName(id?: string): string | null
   tick(dt: number, t: number, here: RoomId): void
   addPlant(p: PaymentEvent, fresh: boolean): void
   chandeliers: THREE.Group[]
@@ -20,7 +22,7 @@ export interface World {
   dispose(): void
 }
 
-export function buildWorld(c: Content, hooks: Hooks): World {
+export function buildWorld(c: Content, hooks: Hooks & SpaceHooks): World {
   const group = new THREE.Group()
   const nav = new Nav()
   const interactables: Interactable[] = []
@@ -37,6 +39,7 @@ export function buildWorld(c: Content, hooks: Hooks): World {
   }
   const lobby = buildLobby(group, nav, c)
   const exterior = buildExterior(group, wings)
+  const spaces = buildSpaces(group, nav, c, wings, add, hooks)
   add({ id: 'altar', pos: new THREE.Vector3(0, 0, 4.6), r: 2.2, label: L('Ofrenda · encender la nube', 'Offering · light the cloud'), room: 'lobby', action: () => hooks.donate() })
   add({ id: 'events', pos: new THREE.Vector3(0, 0, -4.6), r: 2.2, label: L('Agenda de eventos', 'Events calendar'), room: 'lobby', action: () => hooks.openEvents() })
   const garden = runtimes.find((r) => r.addPlant)
@@ -47,6 +50,7 @@ export function buildWorld(c: Content, hooks: Hooks): World {
     wings,
     chandeliers: lobby.chandeliers,
     title: lobby.title,
+    hallName: spaces.hallName,
     spawn(room) {
       if (room === 'lobby') return { x: 0, z: 17, yaw: 0 }
       const w = wings.find((x) => x.room === room)
@@ -56,6 +60,7 @@ export function buildWorld(c: Content, hooks: Hooks): World {
     },
     tick(dt, t, here) {
       exterior.tick(t)
+      spaces.tick(dt, t)
       for (const r of runtimes) r.tick(dt, t, here)
     },
     addPlant(p, fresh) {
