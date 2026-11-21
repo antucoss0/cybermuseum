@@ -78,7 +78,8 @@ export function buildWorld(c: Content, hooks: Hooks & SpaceHooks & ExtraHooks): 
       const w = wings.find((x) => x.room === room)
       if (!w) return { x: 0, z: 17, yaw: 0 }
       const p = w.world(0, room === 'jardin' ? -CORRIDOR_END - 8 : -CORRIDOR_END - 9)
-      return { x: p.x, z: p.z, yaw: (w.k * Math.PI) / 4 }
+      const free = nav.freePoint(p.x, p.z)
+      return { x: free?.x ?? p.x, z: free?.z ?? p.z, yaw: (w.k * Math.PI) / 4 }
     },
     tick(dt, t, here, cinematic = false, hallId) {
       exterior.tick(t)
