@@ -281,9 +281,9 @@ export function buildLobby(parent: THREE.Group, nav: Nav, content: Content) {
     root.add(sp)
   }
   // galleries / LED bands
-  const lobbyLed = new THREE.MeshBasicMaterial({ color: new THREE.Color('#b89cff').multiplyScalar(0.6), toneMapped: false })
-  for (const y of [0.08, 8.2, 13.6, LOBBY_H - 0.1]) {
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(apo / Math.cos(Math.PI / SIDES) - 0.75, 0.02, 4, SIDES), lobbyLed)
+  const lobbyCornice = new THREE.MeshBasicMaterial({ color: '#c9a86a', transparent: true, opacity: 0.12, depthWrite: false, toneMapped: false })
+  for (const y of [8.2, 13.6]) {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(apo / Math.cos(Math.PI / SIDES) - 0.75, 0.008, 4, SIDES), lobbyCornice)
     ring.rotation.x = Math.PI / 2
     ring.rotation.z = Math.PI / SIDES
     ring.position.y = y
@@ -339,24 +339,7 @@ export function buildLobby(parent: THREE.Group, nav: Nav, content: Content) {
     cof.material = M.coffer
     root.add(cof, rim)
   }
-  for (const y of [LOBBY_H + 0.15, LOBBY_H + 0.55]) {
-    const g = new THREE.Mesh(new THREE.TorusGeometry(domeR - 0.1, 0.12, 6, 96), M.gold)
-    g.rotation.x = Math.PI / 2
-    g.position.y = y
-    root.add(g)
-  }
-  for (const t of [0.35, 0.7]) {
-    const rr = Math.cos(t * (Math.PI / 2)) * domeR
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(rr, 0.02, 4, 48), lobbyLed)
-    ring.rotation.x = Math.PI / 2
-    ring.position.y = LOBBY_H + Math.sin(t * (Math.PI / 2)) * domeR * domeY
-    root.add(ring)
-  }
   const oculusY = LOBBY_H + Math.sin(0.93 * (Math.PI / 2)) * domeR * domeY
-  const oculus = new THREE.Mesh(new THREE.TorusGeometry(Math.cos(0.93 * (Math.PI / 2)) * domeR, 0.02, 4, 32), lobbyLed)
-  oculus.rotation.x = Math.PI / 2
-  oculus.position.y = oculusY
-  root.add(oculus)
   const top = spire(18, 1.8)
   top.position.y = oculusY + 0.5
   root.add(top)
