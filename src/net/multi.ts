@@ -32,9 +32,18 @@ export class Multi {
   private sendPay: ((p: PaymentEvent) => void) | null = null
   private setProfile: ((p: PeerProfile) => void) | null = null
 
+  private room: any = null
+  private mic: MediaStream | null = null
   start(roomName: string, me: PeerProfile) {
     try {
       const room = joinRoom({ appId: APP_ID, identity: 'none' } as never, roomName)
+      this.room = room
+      ;(room as any).onPeerStream?.((stream: MediaStream) => {
+        const a = new Audio()
+        a.srcObject = stream
+        a.autoplay = true
+        a.play().catch(() => {})
+      })
       const prof = room.makeUserState<PeerProfile>('profile', me)
       prof.set(me)
       prof.onChange((v, ctx) => {
@@ -85,6 +94,18 @@ export class Multi {
 
   broadcastPose(p: PeerPose) {
     this.sendPose?.(p)
+  }
+  /** Toggles microphone sharing with everyone in the current room. Returns true when live. */
+  async voice(): Promise<boolean> {
+    if (!this.room) return false
+    if (this.mic) {
+      this.mic.getTracks().forEach((t) => (t.enabled = !t.enabled))
+      return this.mic.getTracks()[0]?.enabled ?? false
+    }
+    this.mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })
+    this.room.addStream?.(this.mic)
+    this.room.onPeerJoin?.((id: string) => this.mic && this.room.addStream?.(this.mic, id))
+    return true
   }
   say(text: string) {
     this.sendChat?.(text)

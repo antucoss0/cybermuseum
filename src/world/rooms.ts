@@ -1,13 +1,17 @@
 import { L, tx } from '../core/i18n'
 import * as THREE from 'three'
 import type { Artwork, Content, GameDoor, Product, RoomId } from '../content/types'
-import { mulberry32 } from '../core/util'
+import { detectQuality, mulberry32 } from '../core/util'
 import type { PaymentEvent } from '../payments/bus'
 import { M, label, shared } from './materials'
+import { P, pbr } from './pbr'
 import { archOutline, candelabra, chandelier, column } from './gothic'
 import { paintingStele, sculpture, textureFor } from './art'
-import { CORRIDOR_END, type Interactable, type Wing } from './building'
+import { CORRIDOR_END, galaxyWindowMat, type Interactable, type Wing } from './building'
 import { fit, later, loadGLB, loadPLY, tame } from './assets'
+import { shopDecor } from './shop'
+const shopTicks: ((t: number) => void)[] = []
+export const tickShop = (t: number) => shopTicks.forEach((f) => f(t))
 
 const gold = () => M.gold
 /** Ambient motes that give every hall its own atmosphere (colour, density, motion). */
@@ -47,6 +51,8 @@ export interface Hooks {
   openEvents(): void
   donate(): void
   nextFilm(): void
+  openCatalog(play: (i: number) => void): void
+  sit(eye: THREE.Vector3, look: THREE.Vector3): void
 }
 
 export interface RoomRuntime {
@@ -67,18 +73,24 @@ const roomLight = (w: Wing, color = '#b89cff', intensity = 60) => {
   local(w, l, 0, z0 - w.L / 2, 8)
 }
 
-function gallery(w: Wing, c: Content, add: (i: Interactable) => void, hooks: Hooks, list: Artwork[], start = 2) {
-  const per = Math.ceil(list.length / 2)
-  const span = w.L - start - 3
+function gallery(w: Wing, c: Content, add: (i: Interactable) => void, hooks: Hooks, list: Artwork[]) {
+  const anchors = [...w.bays, ...w.corridorBays].filter((bay) => !bay.chapel)
+  const rows = Math.ceil(Math.max(0, list.length - anchors.length) / 2)
+  const bayLength = w.L / Math.max(1, Math.round(w.L / (w.W / 2)))
+  const spacing = rows ? Math.min(bayLength, (w.L - 2) / rows) : bayLength
   list.forEach((a, i) => {
-    const side = i % 2 ? 1 : -1
-    const j = Math.floor(i / 2)
-    const lz = z0 - start - ((j + 0.5) / per) * span
-    const lx = side * (w.W / 2 - 1.4)
-    const st = paintingStele(a)
+    const bay = anchors[i]
+    const overflow = i - anchors.length
+    const side = bay?.side ?? (overflow % 2 === 0 ? -1 : 1)
+    const lx = bay ? bay.anchor.x - side * 1.15 : side * (w.W / 4)
+    const lz = bay?.z ?? z0 - w.L + 1 + spacing / 2 + Math.floor(overflow / 2) * spacing
+    const size = bay ? 2.4 : Math.max(0.6, Math.min(2.4, spacing - 1.2))
+    const st = paintingStele(a, size, !bay)
     local(w, st, lx, lz, 0, side * -Math.PI / 2)
-    w.obstacle(lx, lz, 1.0)
-    add({ id: a.id, pos: w.world(lx - side * 1.6, lz), r: 2.2, label: `${L('Ver', 'View')} · ${tx(a, 'title')}`, room: w.room, action: () => hooks.openArt(a) })
+    w.obstacle(lx, lz, bay ? 1.0 : Math.min(1.0, spacing / 2 - 0.1))
+    const label = `${L('Ver', 'View')} · ${tx(a, 'title')}`
+    add({ id: a.id, pos: w.world(lx - side * 1.6, lz), r: 2.2, label, room: w.room, action: () => hooks.openArt(a) })
+    if (!bay) add({ id: a.id + '-back', pos: w.world(lx + side * 1.6, lz), r: 2.2, label, room: w.room, action: () => hooks.openArt(a) })
   })
   void c
 }
@@ -142,7 +154,7 @@ const builders: Partial<Record<RoomId, Builder>> = {
   },
   temporales(w, c, add, hooks) {
     roomLight(w, '#c7a6ff')
-    gallery(w, c, add, hooks, c.artworks.filter((a) => a.room === 'temporales'), 4)
+    gallery(w, c, add, hooks, c.artworks.filter((a) => a.room === 'temporales'))
     const t = label(tx(c.temp, 'title'), `${L('curaduría', 'curated by')} · ${c.temp.curator}`, 7)
     local(w, t, 0, z0 - 1.2, 8.3, Math.PI)
     const t2 = label(tx(c.temp, 'title'), `${L('curaduría', 'curated by')} · ${c.temp.curator}`, 7)
@@ -207,7 +219,7 @@ const builders: Partial<Record<RoomId, Builder>> = {
     const mixers: THREE.AnimationMixer[] = []
     const turn: THREE.Object3D[] = []
     const plinth = (lx: number, lz: number, r = 1.3) => {
-      const p = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.1, 0.9, 48), M.obsidian)
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.1, 0.9, 48), P.marbleBlack)
       local(w, p, lx, lz, 0.45)
       const ring = halo(r * 1.05, gold(), 0.03)
       local(w, ring, lx, lz, 0.92)
@@ -299,11 +311,15 @@ const builders: Partial<Record<RoomId, Builder>> = {
     const tex = new THREE.CanvasTexture(cv)
     tex.colorSpace = THREE.SRGBColorSpace
     const screenMat = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false })
-    const screen = new THREE.Mesh(new THREE.PlaneGeometry(14, 7.875), screenMat)
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(15.2, 8.55), screenMat)
     local(w, screen, 0, z0 - w.L + 1.2, 1.4 + 3.9)
-    const frame = archOutline(15, 9.6, 0.08)
+    const frame = archOutline(16, 10.2, 0.03)
     local(w, frame, 0, z0 - w.L + 1.1, 0.9)
-    const velvet = new THREE.MeshPhysicalMaterial({ color: '#4a0c22', roughness: 0.9, sheen: 1, sheenColor: new THREE.Color('#ff7aa8'), sheenRoughness: 0.4 })
+    const velvet = P.velvet.clone() as THREE.MeshPhysicalMaterial
+    velvet.color.set('#641b31')
+    velvet.roughness = 0.92
+    velvet.sheen = 0.9
+    velvet.sheenColor.set('#a34562')
     const seatGeo = new THREE.BoxGeometry(0.78, 0.22, 0.7)
     const backGeo = new THREE.BoxGeometry(0.78, 0.95, 0.16)
     const armGeo = new THREE.BoxGeometry(0.08, 0.5, 0.72)
@@ -311,14 +327,18 @@ const builders: Partial<Record<RoomId, Builder>> = {
     const per = 10
     const seats = new THREE.InstancedMesh(seatGeo, velvet, rows * per)
     const backs = new THREE.InstancedMesh(backGeo, velvet, rows * per)
-    const arms = new THREE.InstancedMesh(armGeo, gold(), rows * per)
+    const arms = new THREE.InstancedMesh(armGeo, gold(), rows * per * 2)
     const mtx = new THREE.Matrix4()
     let n = 0
+    let armCount = 0
     for (let r = 0; r < rows; r++) {
       const lz = z0 - 4.5 - r * 2.1
-      const rise = r * 0.32
+      const rise = (rows - 1 - r) * 0.32
       const tier = new THREE.Mesh(new THREE.BoxGeometry(w.W - 2, 0.32, 2.1), M.obsidian)
-      if (r > 0) local(w, tier, 0, lz, rise - 0.16)
+      if (rise > 0) (local(w, tier, 0, lz, rise - 0.16), w.rect(0, lz, (w.W - 2) / 2, 1.05, w.floorY + rise, w.floorY + rise, true))
+      const carpet = new THREE.Mesh(new THREE.PlaneGeometry(w.W - 2.4, 1.86), velvet)
+      carpet.rotation.x = -Math.PI / 2
+      local(w, carpet, 0, lz, rise + 0.015)
       const step = new THREE.Mesh(new THREE.BoxGeometry(w.W - 2, 0.025, 0.03), M.neonSoft)
       local(w, step, 0, lz + 1.05, rise + 0.01)
       for (let k = 0; k < per; k++) {
@@ -326,15 +346,21 @@ const builders: Partial<Record<RoomId, Builder>> = {
         const lx = (k - 4.5) * 1.15
         mtx.makeTranslation(lx, w.floorY + rise + 0.45, lz)
         seats.setMatrixAt(n, mtx)
-        mtx.makeTranslation(lx, w.floorY + rise + 0.85, lz - 0.32)
+        mtx.makeTranslation(lx, w.floorY + rise + 0.85, lz + 0.32)
         backs.setMatrixAt(n, mtx)
         mtx.makeTranslation(lx - 0.43, w.floorY + rise + 0.5, lz)
-        arms.setMatrixAt(n, mtx)
+        arms.setMatrixAt(armCount++, mtx)
+        mtx.makeTranslation(lx + 0.43, w.floorY + rise + 0.5, lz)
+        arms.setMatrixAt(armCount++, mtx)
         n++
         w.obstacle(lx, lz, 0.5)
       }
+      const eye = w.world(-1.15 * 0.5 - 1.15, lz - 0.05, rise + 1.15)
+      const look = w.world(0, z0 - w.L + 1.2, 4.6)
+      add({ id: 'seat' + r, pos: w.world(0, lz), r: 1, label: L('Sentarse en la butaca', 'Take a seat'), room: w.room, action: () => hooks.sit(eye, look) })
     }
-    seats.count = backs.count = arms.count = n
+    seats.count = backs.count = n
+    arms.count = armCount
     for (const im of [seats, backs, arms]) local(w, im, 0, 0, 0)
     for (const im of [seats, backs, arms]) (im.position.set(0, 0, 0), (im.rotation.y = 0))
     // velvet curtains and gilded proscenium
@@ -394,7 +420,7 @@ const builders: Partial<Record<RoomId, Builder>> = {
     }
     setFilm(0)
     hooks.nextFilm = () => setFilm(film + 1)
-    add({ id: 'film', pos: w.world(0, z0 - 3), r: 2.5, label: L('Cambiar proyección', 'Change screening'), room: w.room, action: () => hooks.nextFilm() })
+    add({ id: 'film', pos: w.world(0, z0 - 2.6), r: 1.8, label: L('Cartelera · elegir proyección', 'Catalog · choose a screening'), room: w.room, action: () => hooks.openCatalog(setFilm) })
     let acc = 0
     return {
       tick: (dt, t, here) => {
@@ -410,7 +436,9 @@ const builders: Partial<Record<RoomId, Builder>> = {
     }
   },
   tienda(w, c, add, hooks) {
-    roomLight(w, '#e2d4ff', 70)
+    roomLight(w, '#e2d4ff', 20)
+    const decor = shopDecor(w, c)
+    shopTicks.push(decor.tick)
     const list = c.products
     list.forEach((p, i) => {
       const side = i % 2 ? 1 : -1
@@ -419,23 +447,49 @@ const builders: Partial<Record<RoomId, Builder>> = {
       const lz = z0 - 3 - ((j + 0.5) / per) * (w.L - 6)
       const lx = side * (w.W / 2 - 2.4)
       const g = new THREE.Group()
-      const ped = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1, 1.4), M.obsidian)
-      ped.position.y = 0.5
-      const glass = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.5, 1.3), M.glass)
-      glass.position.y = 1.75
-      const img = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.1), textureFor(p.gen, p.seed, p.media, 'image'))
-      img.position.set(0, 1.75, 0)
+      const ped = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.7, 1.4), P.wood)
+      ped.position.y = 0.35
+      const trim = new THREE.Mesh(new THREE.BoxGeometry(1.44, 0.025, 1.44), P.gold)
+      trim.position.y = 0.72
+      const glassMat = new THREE.MeshPhysicalMaterial({ color: '#d8d0ff', transparent: true, opacity: 0.055, roughness: 0.16, metalness: 0.04, depthWrite: false, side: THREE.DoubleSide })
+      const glass = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.38, 1.3), glassMat)
+      glass.position.y = 1.42
+      const rimMat = P.gold
+      const rim = new THREE.Group()
+      for (const x of [-0.64, 0.64]) for (const z of [-0.64, 0.64]) {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.025, 1.36, 0.025), rimMat)
+        post.position.set(x, 1.42, z)
+        rim.add(post)
+      }
+      for (const y of [0.73, 2.11]) {
+        for (const z of [-0.64, 0.64]) {
+          const bar = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.025, 0.025), rimMat)
+          bar.position.set(0, y, z)
+          rim.add(bar)
+        }
+        for (const x of [-0.64, 0.64]) {
+          const bar = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.025, 1.3), rimMat)
+          bar.position.set(x, y, 0)
+          rim.add(bar)
+        }
+      }
+      const img = new THREE.Mesh(new THREE.PlaneGeometry(1.02, 1.02), textureFor(p.gen, p.seed, p.media, 'image'))
+      img.position.set(0, 1.48, 0.46)
       img.userData.spin = true
-      const led = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.04, 1.42), M.neon)
-      led.position.y = 1.0
-      g.add(ped, glass, img, led)
+      const downlight = new THREE.PointLight('#e4d8ff', 0.4, 2.8, 2)
+      downlight.position.set(0, 2.03, 0)
+      const plaque = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.28, 0.025), M.obsidian)
+      plaque.position.set(0, 0.88, 0.6)
+      const price = label(tx(p, 'name'), `$${p.price}`, 0.78, '#ead9b6')
+      price.position.set(0, 0.88, 0.62)
+      g.add(ped, trim, glass, rim, img, downlight, plaque, price)
       local(w, g, lx, lz)
       w.obstacle(lx, lz, 1.05)
       add({ id: p.id, pos: w.world(lx - side * 1.6, lz), r: 1.7, label: `${tx(p, 'name')} · $${p.price}`, room: w.room, action: () => hooks.openShop(p) })
     })
-    const counter = new THREE.Mesh(new THREE.BoxGeometry(5, 1.1, 1.2), M.obsidian)
+    const counter = new THREE.Mesh(new THREE.BoxGeometry(5, 1.1, 1.2), P.wood)
     local(w, counter, 0, z0 - w.L + 2.5, 0.55)
-    const cl = new THREE.Mesh(new THREE.BoxGeometry(5, 0.04, 0.04), M.neon)
+    const cl = new THREE.Mesh(new THREE.BoxGeometry(5, 0.025, 0.025), P.gold)
     local(w, cl, 0, z0 - w.L + 3.1, 1.1)
     w.obstacle(-1.6, z0 - w.L + 2.5, 1)
     w.obstacle(0, z0 - w.L + 2.5, 1)
@@ -471,7 +525,17 @@ const builders: Partial<Record<RoomId, Builder>> = {
     const stickers = new THREE.Group()
     const srng = mulberry32(77)
     for (let i = 0; i < 36; i++) {
-      const sh = new THREE.Mesh(new THREE.CircleGeometry(0.22 + srng() * 0.12, i % 3 ? 24 : 4), new THREE.MeshPhysicalMaterial({ color: new THREE.Color().setHSL(0.7 + srng() * 0.25, 0.8, 0.65), iridescence: 1, metalness: 0.6, roughness: 0.2, emissive: new THREE.Color().setHSL(0.75, 0.8, 0.15) }))
+      const sh = new THREE.Mesh(
+        new THREE.CircleGeometry(0.22 + srng() * 0.12, i % 3 ? 24 : 4),
+        new THREE.MeshPhysicalMaterial({
+          color: new THREE.Color().setHSL(0.7 + srng() * 0.25, 0.8, 0.5),
+          iridescence: 0.6,
+          metalness: 0.35,
+          roughness: 0.42,
+          emissive: new THREE.Color().setHSL(0.75, 0.8, 0.05),
+          emissiveIntensity: 0.12,
+        }),
+      )
       sh.position.set((i % 9) * 0.6 - 2.4, Math.floor(i / 9) * 0.6, 0)
       sh.rotation.z = srng() * 3
       stickers.add(sh)
@@ -565,19 +629,112 @@ const builders: Partial<Record<RoomId, Builder>> = {
     const rng = mulberry32(c.settings.seed)
     const kind = c.settings.futureKind
     const spin: THREE.Object3D[] = []
+    let slitMat: THREE.ShaderMaterial | null = null
     roomLight(w, '#b8a2ff', 50)
     if (kind === 'mirador') {
-      for (let i = 0; i < 7; i++) {
-        const r = 0.6 + rng() * 1.2
-        const p = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.6, 0.3, 6), M.stoneLight)
-        const lx = (rng() - 0.5) * (w.W - 4)
-        const lz = z0 - 3 - rng() * (w.L - 6)
-        local(w, p, lx, lz, 1 + rng() * 5)
-        spin.push(p)
+      const centerZ = z0 - w.L / 2
+      const radius = Math.min(w.W * 0.46, w.H * 0.62)
+      const slitPhi = Math.PI / 2
+      const slitHalf = 0.58
+      const domeMat = new THREE.MeshPhysicalMaterial({ color: '#211a32', metalness: 0.22, roughness: 0.48, side: THREE.DoubleSide })
+      for (const geo of [
+        new THREE.SphereGeometry(radius, 32, 16, 0, slitPhi - slitHalf, 0, Math.PI / 2),
+        new THREE.SphereGeometry(radius, 32, 16, slitPhi + slitHalf, Math.PI * 2 - slitPhi - slitHalf, 0, Math.PI / 2),
+      ]) local(w, new THREE.Mesh(geo, domeMat), 0, centerZ, 3.1)
+      slitMat = galaxyWindowMat().clone()
+      slitMat.side = THREE.DoubleSide
+      slitMat.uniforms.uEnergy.value = 1.4
+      const slit = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.995, 16, 16, slitPhi - slitHalf, slitHalf * 2, 0, Math.PI / 2), slitMat)
+      local(w, slit, 0, centerZ, 3.1)
+      for (const phi of [slitPhi - slitHalf, slitPhi + slitHalf]) {
+        const points: THREE.Vector3[] = []
+        for (let i = 0; i <= 24; i++) {
+          const theta = (i / 24) * Math.PI / 2
+          points.push(new THREE.Vector3(radius * Math.sin(theta) * Math.cos(phi), radius * Math.cos(theta), radius * Math.sin(theta) * Math.sin(phi)))
+        }
+        const edge = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 32, 0.028, 5), P.gold)
+        local(w, edge, 0, centerZ, 3.1)
       }
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(4, 0.08, 6, 64), M.neon)
-      local(w, ring, 0, z0 - w.L / 2, 5)
-      spin.push(ring)
+      const chart = new THREE.Mesh(new THREE.TorusGeometry(3.25, 0.035, 8, 96), gold())
+      chart.rotation.x = Math.PI / 2
+      local(w, chart, 0, centerZ, 0.07)
+      const innerChart = new THREE.Mesh(new THREE.TorusGeometry(2.65, 0.018, 6, 96), M.neonSoft)
+      innerChart.rotation.x = Math.PI / 2
+      local(w, innerChart, 0, centerZ, 0.08)
+      for (let i = 0; i < 24; i++) {
+        const a = (i / 24) * Math.PI * 2
+        const star = new THREE.Mesh(new THREE.SphereGeometry(i % 3 ? 0.045 : 0.075, 6, 6), gold())
+        local(w, star, Math.cos(a) * 3.25, centerZ + Math.sin(a) * 3.25, 0.13)
+      }
+      const telescope = new THREE.Group()
+      const pier = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.25, 1.8, 12), P.gold)
+      pier.position.y = 0.9
+      telescope.add(pier)
+      const up = new THREE.Vector3(0, 1, 0)
+      for (let i = 0; i < 3; i++) {
+        const angle = (i / 3) * Math.PI * 2
+        const foot = new THREE.Vector3(Math.cos(angle) * 0.82, 0.08, Math.sin(angle) * 0.82)
+        const top = new THREE.Vector3(0, 1.2, 0)
+        const direction = top.clone().sub(foot)
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.065, direction.length(), 8), P.gold)
+        leg.position.copy(foot).add(top).multiplyScalar(0.5)
+        leg.quaternion.setFromUnitVectors(up, direction.normalize())
+        telescope.add(leg)
+      }
+      const saddle = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.34, 0.22, 12), P.gold)
+      saddle.position.y = 1.82
+      const axis = new THREE.Vector3(0.24, 0.65, 0.72).normalize()
+      const axisRotation = new THREE.Quaternion().setFromUnitVectors(up, axis)
+      const faceRotation = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), axis)
+      const pivot = new THREE.Vector3(0, 2.28, 0)
+      const joint = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), P.gold)
+      joint.position.copy(pivot)
+      const mountHead = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.26, 0.52, 12), P.gold)
+      mountHead.position.set(0, 2.04, 0)
+      const forkSide = new THREE.Vector3().crossVectors(axis, up).normalize()
+      const decShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.98, 10), P.gold)
+      decShaft.position.copy(pivot)
+      decShaft.quaternion.setFromUnitVectors(up, forkSide)
+      const fork: THREE.Mesh[] = []
+      for (const sign of [-1, 1]) {
+        const foot = new THREE.Vector3(0, 1.84, 0).addScaledVector(forkSide, sign * 0.42)
+        const top = pivot.clone().addScaledVector(forkSide, sign * 0.42)
+        const direction = top.clone().sub(foot)
+        const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.07, direction.length(), 8), P.gold)
+        arm.position.copy(foot).add(top).multiplyScalar(0.5)
+        arm.quaternion.setFromUnitVectors(up, direction.normalize())
+        fork.push(arm)
+      }
+      const tubeMat = new THREE.MeshPhysicalMaterial({ color: '#282337', metalness: 0.82, roughness: 0.24, clearcoat: 0.8, clearcoatRoughness: 0.18 })
+      const lensMat = new THREE.MeshPhysicalMaterial({ color: '#303b70', emissive: '#111a45', emissiveIntensity: 0.35, metalness: 0.55, roughness: 0.16, clearcoat: 1 })
+      const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 2.7, 16), tubeMat)
+      tube.position.copy(pivot).addScaledVector(axis, 1.35)
+      tube.quaternion.copy(axisRotation)
+      const eyepiece = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 0.45, 12), P.gold)
+      eyepiece.position.copy(pivot).addScaledVector(axis, -0.24)
+      eyepiece.quaternion.copy(axisRotation)
+      const objective = new THREE.Mesh(new THREE.CircleGeometry(0.16, 24), lensMat)
+      objective.position.copy(pivot).addScaledVector(axis, 2.69)
+      objective.quaternion.copy(faceRotation)
+      const bands: THREE.Mesh[] = []
+      for (const distance of [0.28, 2.56]) {
+        const band = new THREE.Mesh(new THREE.TorusGeometry(0.205, 0.032, 8, 24), P.gold)
+        band.position.copy(pivot).addScaledVector(axis, distance)
+        band.quaternion.copy(faceRotation)
+        bands.push(band)
+      }
+      telescope.add(saddle, mountHead, decShaft, ...fork, joint, tube, eyepiece, objective, ...bands)
+      local(w, telescope, -1.6, centerZ + 0.6)
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2
+        const col = column(3.5, 0.22)
+        const capital = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.25, 0.18, 12), P.gold)
+        capital.position.y = 3.56
+        col.add(capital)
+        local(w, col, Math.cos(a) * (radius - 0.5), centerZ + Math.sin(a) * (radius - 0.5))
+      }
+      const starfield = new THREE.Mesh(new THREE.PlaneGeometry(w.W - 2, w.H - 2), galaxyWindowMat())
+      local(w, starfield, 0, centerZ - w.L * 0.34, 6.5, Math.PI)
     } else if (kind === 'santuario') {
       const n = 6 + Math.floor(rng() * 6)
       for (let i = 0; i < n; i++) {
@@ -604,71 +761,163 @@ const builders: Partial<Record<RoomId, Builder>> = {
     const t = label(c.settings.futureName, `${L('semilla', 'seed')} ${c.settings.seed}`, 6)
     local(w, t, 0, z0 - w.L + 0.6, 8.6)
     add({ id: 'future', pos: w.world(0, z0 - w.L / 2 + 4), r: 2.4, label: `${c.settings.futureName} · ${L('ver eventos', 'see events')}`, room: w.room, action: () => hooks.openEvents() })
-    return { tick: (_dt, tm) => spin.forEach((o, i) => ((o.rotation.y = tm * 0.2 * (i % 2 ? 1 : -1)), (o.position.y += Math.sin(tm + i) * 0.002))) }
+    return {
+      tick: (_dt, tm) => {
+        spin.forEach((o, i) => (o.rotation.y = tm * 0.2 * (i % 2 ? 1 : -1)))
+        if (slitMat) slitMat.uniforms.uTime.value = tm
+      },
+    }
   },
   jardin(w, c, add, hooks) {
     const cz = z0 - 22
     const R = 22
-    const ground = new THREE.Mesh(
-      new THREE.CircleGeometry(R + 4, 64),
-      new THREE.ShaderMaterial({
-        uniforms: { uTime: shared.time, uEnergy: shared.energy, uC: { value: new THREE.Vector2(0, cz) } },
-        vertexShader: `varying vec3 vW; void main(){ vec4 w = modelMatrix*vec4(position,1.0); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
-        fragmentShader: `varying vec3 vW; uniform float uTime; uniform float uEnergy;
-          void main(){ vec2 p = vW.xz; float g = abs(fract(p.x*0.5)-0.5) < 0.02 || abs(fract(p.y*0.5)-0.5) < 0.02 ? 1.0 : 0.0;
-            float n = sin(p.x*1.7+uTime*0.3)*sin(p.y*1.3-uTime*0.2);
-            vec3 col = vec3(0.02,0.03,0.06) + vec3(0.05,0.12,0.18)*(0.5+0.5*n);
-            col += vec3(0.55,0.45,1.0)*g*0.12*(1.0+uEnergy*2.0);
-            gl_FragColor = vec4(col,1.0);
-            #include <tonemapping_fragment>
-            #include <colorspace_fragment>
-          }`,
-      }),
-    )
+    const ground = new THREE.Mesh(new THREE.CircleGeometry(R + 4, 64), pbr('forrest_ground_01', { repeat: [5, 5], color: '#9aa99b', roughness: 0.94 }))
     ground.rotation.x = -Math.PI / 2
     local(w, ground, 0, cz, 0.005)
+    const veinMat = new THREE.MeshBasicMaterial({ color: '#65a68d', transparent: true, opacity: 0.1, toneMapped: false })
+    const veinRng = mulberry32(125)
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2
+      const curve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(Math.cos(a) * 4, 0.02, cz + Math.sin(a) * 4),
+        new THREE.Vector3(Math.cos(a + 0.3) * 10, 0.025, cz + Math.sin(a + 0.3) * 10),
+        new THREE.Vector3(Math.cos(a - 0.18) * 16, 0.025, cz + Math.sin(a - 0.18) * 16),
+        new THREE.Vector3(Math.cos(a + (veinRng() - 0.5)) * 23, 0.02, cz + Math.sin(a + (veinRng() - 0.5)) * 23),
+      ])
+      w.group.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 32, 0.018, 5, false), veinMat))
+    }
     w.rect(0, z0 - 6, 5, 7)
     w.circle(0, cz, R)
     const pool = new THREE.Mesh(new THREE.CircleGeometry(4.5, 48), new THREE.MeshStandardMaterial({ color: '#0a0920', metalness: 1, roughness: 0.05 }))
     pool.rotation.x = -Math.PI / 2
     local(w, pool, 0, cz, 0.03)
-    const poolRing = new THREE.Mesh(new THREE.TorusGeometry(4.6, 0.08, 6, 64), M.neon)
+    const poolRing = new THREE.Mesh(
+      new THREE.TorusGeometry(4.6, 0.012, 4, 64),
+      new THREE.MeshBasicMaterial({ color: '#c9a86a', transparent: true, opacity: 0.32, depthWrite: false, toneMapped: false }),
+    )
     poolRing.rotation.x = Math.PI / 2
     local(w, poolRing, 0, cz, 0.08)
     w.obstacle(0, cz, 4.7)
     add({ id: 'garden', pos: w.world(0, cz + 6), r: 2.4, label: L('Plantar una flor (apoyar al jardín)', 'Plant a flower (support the garden)'), room: w.room, action: () => hooks.donate() })
-    // crystal trees
     const rng = mulberry32(99)
-    const trunkMat = new THREE.MeshStandardMaterial({ color: '#3b2f66', metalness: 0.6, roughness: 0.3 })
-    for (let i = 0; i < 9; i++) {
-      const a = (i / 9) * Math.PI * 2 + 0.3
-      const r = R - 3 - rng() * 2
-      const lx = Math.cos(a) * r
-      const lz = cz + Math.sin(a) * r
-      if (lz > cz + R - 6 && Math.abs(lx) < 6) continue
-      const tree = new THREE.Group()
-      const h = 3 + rng() * 2
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.2, h, 6), trunkMat)
-      trunk.position.y = h / 2
-      tree.add(trunk)
-      for (let j = 0; j < 7; j++) {
-        const cr = new THREE.Mesh(new THREE.OctahedronGeometry(0.4 + rng() * 0.6), j % 2 ? M.neonSoft : M.glass)
-        cr.position.set((rng() - 0.5) * 2, h + (rng() - 0.3) * 1.5, (rng() - 0.5) * 2)
-        cr.rotation.set(rng() * 3, rng() * 3, 0)
-        tree.add(cr)
+    const lowQuality = detectQuality() === 'low'
+    const gardenPaths = [
+      new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0, 0, z0 - 2),
+        new THREE.Vector3(-2.5, 0, z0 - 7),
+        new THREE.Vector3(-8, 0, cz + 9),
+        new THREE.Vector3(-10, 0, cz + 3),
+        new THREE.Vector3(-7, 0, cz - 5),
+      ]),
+      new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0, 0, z0 - 2),
+        new THREE.Vector3(2.5, 0, z0 - 7),
+        new THREE.Vector3(8, 0, cz + 9),
+        new THREE.Vector3(10, 0, cz + 3),
+        new THREE.Vector3(7, 0, cz - 5),
+      ]),
+    ]
+    const flags = new THREE.InstancedMesh(new THREE.BoxGeometry(0.92, 0.12, 0.64), P.stoneCarved, 112)
+    const flag = new THREE.Object3D()
+    let flagIndex = 0
+    for (const path of gardenPaths) {
+      for (let i = 0; i < 56; i++) {
+        const t = (i + 0.5) / 56
+        const point = path.getPointAt(t)
+        const tangent = path.getTangentAt(t)
+        flag.position.set(point.x + (rng() - 0.5) * 0.12, w.floorY + 0.07, point.z + (rng() - 0.5) * 0.12)
+        flag.rotation.set(0, Math.atan2(-tangent.z, tangent.x) + (rng() - 0.5) * 0.12, 0)
+        flag.scale.set(0.78 + rng() * 0.35, 0.8 + rng() * 0.3, 0.78 + rng() * 0.35)
+        flag.updateMatrix()
+        flags.setMatrixAt(flagIndex++, flag.matrix)
       }
-      local(w, tree, lx, lz)
-      w.obstacle(lx, lz, 0.6)
+    }
+    flags.instanceMatrix.needsUpdate = true
+    w.group.add(flags)
+    const trunkMat = new THREE.MeshStandardMaterial({ color: '#2b2130', metalness: 0.05, roughness: 0.95 })
+    const hedgeMat = new THREE.MeshStandardMaterial({ color: '#18261c', roughness: 0.95 })
+    const treeMat = new THREE.MeshStandardMaterial({ color: '#334936', roughness: 0.92 })
+    const treeCount = 6
+    const treeTrunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.16, 0.28, 4.2, 8), trunkMat, treeCount)
+    const treeCanopies = new THREE.InstancedMesh(new THREE.ConeGeometry(2.1, 4, 8), treeMat, treeCount)
+    const treeCrowns = new THREE.InstancedMesh(new THREE.ConeGeometry(1.55, 3.4, 8), treeMat, treeCount)
+    const treeTransform = new THREE.Object3D()
+    for (let i = 0; i < treeCount; i++) {
+      const angle = (i / treeCount) * Math.PI * 2 + 0.25
+      const lx = Math.cos(angle) * 19
+      const lz = cz + Math.sin(angle) * 19
+      const scale = 0.9 + rng() * 0.2
+      treeTransform.position.set(lx, w.floorY + 2.1 * scale, lz)
+      treeTransform.rotation.set(0, angle, 0)
+      treeTransform.scale.set(1, scale, 1)
+      treeTransform.updateMatrix()
+      treeTrunks.setMatrixAt(i, treeTransform.matrix)
+      treeTransform.position.y = w.floorY + 4.7 * scale
+      treeTransform.scale.set(1.08, scale, 1.08)
+      treeTransform.updateMatrix()
+      treeCanopies.setMatrixAt(i, treeTransform.matrix)
+      treeTransform.position.y = w.floorY + 6.15 * scale
+      treeTransform.scale.set(0.95, scale, 0.95)
+      treeTransform.updateMatrix()
+      treeCrowns.setMatrixAt(i, treeTransform.matrix)
+      w.obstacle(lx, lz, 0.7)
+    }
+    treeTrunks.instanceMatrix.needsUpdate = true
+    treeCanopies.instanceMatrix.needsUpdate = true
+    treeCrowns.instanceMatrix.needsUpdate = true
+    treeTrunks.frustumCulled = true
+    treeCanopies.frustumCulled = true
+    treeCrowns.frustumCulled = true
+    w.group.add(treeTrunks, treeCanopies, treeCrowns)
+    const grassCount = lowQuality ? 450 : 900
+    const grassRng = mulberry32(927)
+    const grassGeometry = new THREE.BufferGeometry()
+    grassGeometry.setAttribute('position', new THREE.Float32BufferAttribute([
+      -0.08, 0, 0, 0, 0.54, 0, 0.08, 0, 0,
+      0, 0, -0.08, 0, 0.44, 0, 0, 0, 0.08,
+      -0.07, 0, 0.06, 0, 0.38, -0.05, 0.07, 0, 0.06,
+    ], 3))
+    grassGeometry.setIndex([0, 1, 2, 3, 4, 5, 6, 7, 8])
+    grassGeometry.computeVertexNormals()
+    const grassMaterial = new THREE.MeshStandardMaterial({ color: '#617b4b', roughness: 1, side: THREE.DoubleSide })
+    const grassBatches = new Map<number, THREE.Matrix4[]>()
+    const grassTransform = new THREE.Object3D()
+    for (let i = 0; i < grassCount; i++) {
+      const pathIndex = i % gardenPaths.length
+      const path = gardenPaths[pathIndex]
+      const t = grassRng()
+      const point = path.getPointAt(t)
+      const tangent = path.getTangentAt(t)
+      const side = i % 2 ? 1 : -1
+      const offset = side * (0.65 + grassRng() * 2.5)
+      const along = (grassRng() - 0.5) * 1.6
+      const lx = point.x + tangent.z * offset + tangent.x * along
+      const lz = point.z - tangent.x * offset + tangent.z * along
+      grassTransform.position.set(lx, w.floorY + 0.012, lz)
+      grassTransform.rotation.y = grassRng() * Math.PI
+      const scale = 0.7 + grassRng() * 0.8
+      grassTransform.scale.set(scale, scale * (0.65 + grassRng() * 0.55), scale)
+      grassTransform.updateMatrix()
+      const chunk = pathIndex * 4 + Math.min(3, Math.floor(t * 4))
+      const batch = grassBatches.get(chunk) ?? []
+      batch.push(grassTransform.matrix.clone())
+      grassBatches.set(chunk, batch)
+    }
+    for (const matrices of grassBatches.values()) {
+      const grass = new THREE.InstancedMesh(grassGeometry, grassMaterial, matrices.length)
+      matrices.forEach((matrix, i) => grass.setMatrixAt(i, matrix))
+      grass.instanceMatrix.needsUpdate = true
+      grass.frustumCulled = true
+      grass.computeBoundingSphere()
+      w.group.add(grass)
     }
     for (let i = 0; i < 28; i++) {
       const a = (i / 28) * Math.PI * 2
       const lx = Math.cos(a) * (R + 0.5)
       const lz = cz + Math.sin(a) * (R + 0.5)
       if (lz > cz + R - 2 && Math.abs(lx) < 6) continue
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.1, 5), M.obsidian)
-      local(w, post, lx, lz, 0.55)
-      const tip = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 6), M.neon)
-      local(w, tip, lx, lz, 1.15)
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.7, 5), hedgeMat)
+      local(w, post, lx, lz, 0.35)
     }
     const portal = archOutline(6, 9, 0.12)
     local(w, portal, 0, z0 - 1.05, 0, Math.PI)
@@ -680,17 +929,109 @@ const builders: Partial<Record<RoomId, Builder>> = {
     const prefabs: THREE.Object3D[] = []
     const mixersG: THREE.AnimationMixer[] = []
     later(() =>
-      Promise.all([loadGLB('DiffuseTransmissionPlant.glb'), loadGLB('GlassVaseFlowers.glb')]).then(([plant, vase]) => {
-        tame(plant.scene)
-        tame(vase.scene)
-        const p0 = fit(plant.scene.clone(), 1.6)
-        const p1 = fit(vase.scene.clone(), 1.2)
-        prefabs.push(p0, p1)
+      Promise.all(['fern_02', 'shrub_03', 'potted_plant_04', 'flower_empodium', 'calathea_orbifolia_01'].map((slug) => loadGLB(`ph/${slug}/${slug}_1k.gltf`))).then((models) => {
+        const sizes = [2.8, 2.7, 2.2, 1.8, 2.5]
+        const prototypes = models.map((model, i) => {
+          tame(model.scene)
+          return fit(model.scene.clone(), sizes[i])
+        })
+        prefabs.push(...prototypes.map((p) => p.clone()))
+        const plantRng = mulberry32(219)
+        const plantCount = lowQuality ? 60 : 120
+        const potCount = lowQuality ? 1 : 2
+        const clusterCount = lowQuality ? 12 : 20
+        w.group.userData.gardenPlantInstances = plantCount * 4 + potCount
+        w.group.userData.gardenGrassTufts = grassCount
+        const bedCenters = Array.from({ length: 20 }, (_, i) => {
+          const angle = (i / 20) * Math.PI * 2 + 0.12
+          const radius = 10 + (0.5 + 0.5 * Math.sin(i * 2.3)) * 7.5
+          return { x: Math.cos(angle) * radius, z: cz + Math.sin(angle) * radius }
+        })
+        const flowerClumps: number[] = []
+        let remainingFlowers = plantCount
+        while (remainingFlowers > 0) {
+          let size = remainingFlowers <= 12 ? remainingFlowers : 5 + Math.floor(plantRng() * 8)
+          if (remainingFlowers - size > 0 && remainingFlowers - size < 5) size = remainingFlowers - 5
+          flowerClumps.push(size)
+          remainingFlowers -= size
+        }
+        const flowerSites: { x: number; z: number }[] = []
+        for (let i = 0; i < flowerClumps.length; i++) {
+          const pathIndex = i % gardenPaths.length
+          const path = gardenPaths[pathIndex]
+          const lane = Math.floor(i / gardenPaths.length)
+          const laneCount = Math.ceil(flowerClumps.length / gardenPaths.length)
+          const t = 0.08 + ((lane + 0.5) / laneCount) * 0.84
+          const point = path.getPointAt(t)
+          const tangent = path.getTangentAt(t)
+          const side = lane % 2 ? 1 : -1
+          const centerX = point.x + tangent.z * side * (1.6 + plantRng() * 1.2)
+          const centerZ = point.z - tangent.x * side * (1.6 + plantRng() * 1.2)
+          for (let j = 0; j < flowerClumps[i]; j++) {
+            const noise = Math.sin((centerX + centerZ) * 0.45 + j * 1.7) * 0.2
+            const along = (plantRng() + plantRng() - 1) * 0.9
+            const across = (plantRng() + plantRng() - 1) * (0.55 + noise)
+            flowerSites.push({
+              x: centerX + tangent.x * along + tangent.z * across,
+              z: centerZ + tangent.z * along - tangent.x * across,
+            })
+          }
+        }
+        prototypes.forEach((prototype, variant) => {
+          prototype.updateMatrixWorld(true)
+          const batches = new Map<string, THREE.Matrix4[]>()
+          const count = variant === 2 ? potCount : plantCount
+          for (let i = 0; i < count; i++) {
+            let lx: number
+            let lz: number
+            let scale: number
+            if (variant === 2) {
+              const side = i % 2 ? 1 : -1
+              lx = side * 5.2
+              lz = z0 - 6.8
+              scale = 0.42 + plantRng() * 0.12
+            } else if (variant === 3) {
+              lx = flowerSites[i].x
+              lz = flowerSites[i].z
+              scale = 0.55 + plantRng() * 0.45
+            } else {
+              const center = bedCenters[i % clusterCount]
+              const field = Math.sin(center.x * 0.31 + center.z * 0.17) * Math.cos(center.x * 0.19 - center.z * 0.27)
+              const spread = 1.25 + (field + 1) * 0.45
+              lx = center.x + (plantRng() + plantRng() - 1) * spread
+              lz = center.z + (plantRng() + plantRng() - 1) * spread
+              scale = 0.82 + plantRng() * 0.55
+            }
+            const placement = new THREE.Object3D()
+            placement.position.set(lx, w.floorY, lz)
+            placement.rotation.y = plantRng() * Math.PI * 2
+            placement.scale.setScalar(scale)
+            placement.updateMatrix()
+            const cellX = Math.floor((lx + 24) / 12)
+            const cellZ = Math.floor((lz - (cz - 24)) / 12)
+            const key = `${cellX}:${cellZ}`
+            const batch = batches.get(key) ?? []
+            batch.push(placement.matrix.clone())
+            batches.set(key, batch)
+            w.obstacle(lx, lz, variant === 2 ? 0.35 : 0.5)
+          }
+          prototype.traverse((object) => {
+            const mesh = object as THREE.Mesh
+            if (!mesh.isMesh) return
+            for (const placements of batches.values()) {
+              const instances = new THREE.InstancedMesh(mesh.geometry, mesh.material, placements.length)
+              placements.forEach((placement, i) => instances.setMatrixAt(i, placement.clone().multiply(mesh.matrixWorld)))
+              instances.instanceMatrix.needsUpdate = true
+              instances.frustumCulled = true
+              instances.computeBoundingSphere()
+              w.group.add(instances)
+            }
+          })
+        })
         for (let i = 0; i < 6; i++) {
           const a = (i / 6) * Math.PI * 2 + 0.5
-          const o = fit((i % 2 ? vase : plant).scene.clone(), i % 2 ? 2.2 : 3)
           const holder = new THREE.Group()
-          holder.add(o)
+          holder.add(prototypes[[0, 1, 3, 4, 0, 1][i]].clone())
           local(w, holder, Math.cos(a) * 6.2, cz + Math.sin(a) * 6.2)
           holder.userData.phase = i
           heroes.push(holder)
@@ -728,7 +1069,7 @@ const builders: Partial<Record<RoomId, Builder>> = {
       }
       const scale = 0.7 + Math.min(2.2, Math.log10(1 + p.amount) * 0.7)
       const f = new THREE.Group()
-      if (prefabs.length && r() < 0.5) {
+      if (prefabs.length) {
         const o = prefabs[Math.floor(r() * prefabs.length)].clone()
         o.scale.multiplyScalar(0.6 + scale * 0.4)
         o.rotation.y = r() * 6.28

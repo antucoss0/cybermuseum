@@ -1,14 +1,13 @@
-import { configured, cors, isAdmin, pey, send } from './_pey.js'
-
-// GET (x-admin-pin) -> latest pey transactions of the API key, for the SuperAdmin revenue charts
+// Revenue (PIN 4441): completed Checkout Sessions.
+import { cors, isRevenue, send, stripe, stripeOn } from './_lib.js'
 export default async function handler(req, res) {
   if (cors(req, res)) return
-  if (!isAdmin(req)) return send(res, 401, { error: 'unauthorized' })
-  if (!configured()) return send(res, 200, { pey: false, items: [] })
+  if (!isRevenue(req)) return send(res, 401, { error: 'revenue pin required' })
+  if (!stripeOn()) return send(res, 503, { error: 'stripe not configured' })
   try {
-    const r = await pey('/transaction/api-key')
-    send(res, 200, { pey: true, items: r.items || [] })
+    const r = await stripe('/checkout/sessions?limit=100&status=complete')
+    send(res, 200, { items: r.data.map((s) => ({ id: s.id, amount: s.amount_total / 100, currency: s.currency, purpose: s.metadata?.purpose, payer: s.metadata?.payer, email: s.customer_details?.email, at: s.created * 1000 })) })
   } catch (e) {
-    send(res, 502, { error: e.message })
+    send(res, e.status || 500, { error: String(e.message || e) })
   }
 }

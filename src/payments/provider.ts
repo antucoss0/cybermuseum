@@ -1,9 +1,7 @@
-import { content } from '../content/store'
 import { payments, type PaymentEvent, type PaymentPurpose } from './bus'
 
 /**
- * A checkout the UI can show: a CoDi QR string (rendered client-side),
- * and/or a hosted payment-link URL. `wait()` resolves when the payment lands.
+ * A checkout the UI can show: a hosted Stripe Checkout URL (or a demo QR). `wait()` resolves when the payment lands.
  */
 export interface Checkout {
   id: string
@@ -22,9 +20,9 @@ export interface PaymentProvider {
   createCheckout(amount: number, concept: string, purpose: PaymentPurpose, payer: string): Promise<Checkout>
 }
 
-/** Offline provider used until the pey integration is connected. */
+/** Offline demo provider used until STRIPE_SECRET_KEY is configured on the server. */
 export class SimulatedProvider implements PaymentProvider {
-  readonly name = 'Simulado'
+  readonly name = 'Demo'
   async createCheckout(amount: number, concept: string, purpose: PaymentPurpose, payer: string): Promise<Checkout> {
     const id = 'sim_' + Math.random().toString(36).slice(2, 10)
     let resolve: (p: PaymentEvent | null) => void = () => {}
@@ -49,72 +47,58 @@ export class SimulatedProvider implements PaymentProvider {
 }
 
 /**
- * pey (CoDi) provider. The browser never holds the pey API key: the serverless
- * backend in /api creates the CoDi QR (POST api.pey.mx/codi/qr) and the client
- * polls /api/status until pey reports the QR as PAID.
+ * Stripe provider. The secret key lives only in the /api functions: the browser gets a hosted
+ * Checkout URL, opens it, and polls /api/status until the session is paid.
  */
-export class PeyProvider implements PaymentProvider {
-  readonly name = 'pey · CoDi'
-  constructor(private backend: string) {}
-  private url(path: string) {
-    return this.backend.replace(/\/$/, '') + path
-  }
+export class StripeProvider implements PaymentProvider {
+  readonly name = 'Stripe'
   async createCheckout(amount: number, concept: string, purpose: PaymentPurpose, payer: string): Promise<Checkout> {
-    const r = await fetch(this.url('/checkout'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount, concept, purpose, payer }),
-    })
-    const data = (await r.json().catch(() => ({}))) as { id: string; qrString?: string; url?: string; error?: string }
-    if (!r.ok || !data.id) throw new Error(data.error || 'pey checkout failed')
+    const r = await fetch('./api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount, concept, purpose, payer }) })
+    const data = (await r.json().catch(() => ({}))) as { id: string; url?: string; error?: string }
+    if (!r.ok || !data.id) throw new Error(data.error || 'checkout failed')
     return {
       id: data.id,
       amount,
       concept,
-      qrString: data.qrString,
       url: data.url,
       simulated: false,
       wait: (signal) =>
         new Promise((resolve) => {
           let timer = 0
-          const finish = (p: PaymentEvent | null) => {
-            clearTimeout(timer)
-            off()
-            resolve(p)
-          }
-          const off = payments.received.on((p) => p.id === 'pey_' + data.id && finish(p))
+          const finish = (p: PaymentEvent | null) => (clearTimeout(timer), resolve(p))
           const poll = async () => {
             if (signal.aborted) return
-            try {
-              const s = await (await fetch(this.url('/status?id=' + encodeURIComponent(data.id)), { cache: 'no-store' })).json()
-              if (s.paid) {
-                const ev = payments.make(Number(s.amount) || amount, concept, purpose, payer, 'pey')
-                ev.id = 'pey_' + data.id
-                return finish(ev)
-              }
-            } catch {}
-            timer = window.setTimeout(poll, 2500)
+            const s = await checkSession(data.id).catch(() => null)
+            if (s) return finish(s)
+            timer = window.setTimeout(poll, 3000)
           }
-          timer = window.setTimeout(poll, 2500)
+          timer = window.setTimeout(poll, 3000)
           signal.addEventListener('abort', () => finish(null))
         }),
     }
   }
 }
 
-let detected: Promise<string> | null = null
-/** Finds a configured pey backend: settings.peyBackend, or the same-origin /api functions. */
-export function detectBackend(): Promise<string> {
-  const manual = content.data.settings.peyBackend.trim()
-  if (manual) return Promise.resolve(manual)
-  detected ??= fetch('./api/health', { cache: 'no-store' })
+/** Verifies a Checkout Session (also used when Stripe redirects back with ?paid=cs_…). */
+export async function checkSession(id: string): Promise<PaymentEvent | null> {
+  const s = await (await fetch('./api/status?id=' + encodeURIComponent(id), { cache: 'no-store' })).json()
+  if (!s.paid) return null
+  const ev = payments.make(Number(s.amount), s.purpose === 'tienda' ? 'Compra' : 'Donación', s.purpose || 'donacion', s.payer || '', 'stripe')
+  ev.id = 'stripe_' + id
+  ev.at = s.at || Date.now()
+  return ev
+}
+
+let detected: Promise<boolean> | null = null
+export const backendInfo = () =>
+  fetch('./api/health', { cache: 'no-store' })
     .then((r) => (r.ok ? r.json() : null))
-    .then((j) => (j?.pey ? './api' : ''))
-    .catch(() => '')
+    .catch(() => null) as Promise<{ stripe: boolean; storage: boolean } | null>
+export function stripeReady(): Promise<boolean> {
+  detected ??= backendInfo().then((j) => Boolean(j?.stripe))
   return detected
 }
 
 export async function getProvider(): Promise<PaymentProvider> {
-  const backend = await detectBackend()
-  return backend ? new PeyProvider(backend) : new SimulatedProvider()
+  return (await stripeReady()) ? new StripeProvider() : new SimulatedProvider()
 }

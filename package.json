@@ -13,6 +13,7 @@
   "dependencies": {
     "@fontsource/playfair-display": "^5.3.0",
     "@fontsource/roboto-mono": "^5.3.0",
+    "@vercel/blob": "^0.27.3",
     "qrcode": "^1.5.4",
     "three": "^0.187.0",
     "trystero": "^0.27.0"

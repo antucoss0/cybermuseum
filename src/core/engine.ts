@@ -3,6 +3,8 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
+import { SMAAPass } from 'three/examples/jsm/postprocessing/SMAAPass.js'
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
 import type { Quality } from './util'
 
 export type Tick = (dt: number, t: number) => void
@@ -23,6 +25,7 @@ export class Engine {
   private maxDpr = 1
   private perfT = 0
   private perfFrames = 0
+  private film: ShaderPass | null = null
 
   constructor(canvas: HTMLCanvasElement, public quality: Quality) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: quality !== 'low', powerPreference: 'high-performance' })
@@ -30,8 +33,8 @@ export class Engine {
     this.dpr = this.maxDpr = dpr
     this.renderer.setPixelRatio(dpr)
     this.renderer.xr.enabled = true
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping
-    this.renderer.toneMappingExposure = 0.92
+    this.renderer.toneMapping = THREE.AgXToneMapping
+    this.renderer.toneMappingExposure = 1.12
     this.renderer.outputColorSpace = THREE.SRGBColorSpace
     this.camera = new THREE.PerspectiveCamera(62, 1, 0.1, 2500)
     this.scene.background = new THREE.Color('#05040a')
@@ -42,6 +45,31 @@ export class Engine {
     const res = new THREE.Vector2(256, 256)
     this.bloom = new UnrealBloomPass(res, quality === 'low' ? 0.6 : 0.75, 0.35, 0.88)
     this.composer.addPass(this.bloom)
+    if (quality !== 'low') {
+      this.film = new ShaderPass({
+        uniforms: { tDiffuse: { value: null }, uTime: { value: 0 } },
+        vertexShader: /* glsl */ `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }`,
+        fragmentShader: /* glsl */ `
+          uniform sampler2D tDiffuse;
+          uniform float uTime;
+          varying vec2 vUv;
+          float grainHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7)) + uTime * 41.0) * 43758.5453); }
+          void main() {
+            vec4 color = texture2D(tDiffuse, vUv);
+            float edge = 1.0 - smoothstep(0.25, 0.88, length((vUv - 0.5) * vec2(1.0, 0.78)));
+            color.rgb *= mix(0.93, 1.0, edge);
+            color.rgb += (grainHash(gl_FragCoord.xy) - 0.5) * 0.012;
+            gl_FragColor = color;
+          }`,
+      })
+      this.composer.addPass(this.film)
+    }
+    if (quality === 'high') this.composer.addPass(new SMAAPass())
     this.composer.addPass(new OutputPass())
     this.resize()
     addEventListener('resize', () => this.resize())
@@ -69,6 +97,7 @@ export class Engine {
     const dt = Math.min(this.clock.getDelta(), 0.1)
     if (!this.running) return
     this.time += dt
+    if (this.film) this.film.uniforms.uTime.value = this.time
     this.fps = this.fps * 0.95 + (1 / Math.max(dt, 0.001)) * 0.05
     for (const t of this.ticks) t(dt, this.time)
     if (this.renderer.xr.isPresenting) this.renderer.render(this.scene, this.camera)

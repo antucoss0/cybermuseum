@@ -1,17 +1,12 @@
-import { configured, cors, pey, send } from './_pey.js'
-
-// GET -> recent paid transactions (public, anonymised) so every visitor sees real payments
+// Public, anonymised feed of recent payments so every visitor sees the garden grow.
+import { cors, send, stripe, stripeOn } from './_lib.js'
 export default async function handler(req, res) {
   if (cors(req, res)) return
-  if (!configured()) return send(res, 200, { items: [] })
+  if (!stripeOn()) return send(res, 200, { items: [] })
   try {
-    const r = await pey('/transaction/api-key')
-    const items = (r.items || [])
-      .filter((t) => t.status === 'PAID')
-      .slice(0, 30)
-      .map((t) => ({ id: t.id, amount: t.amount, concept: t.description || 'CoDi', at: (t.datePaid || t.dateCreated || 0) * 1000 }))
-    send(res, 200, { items })
+    const r = await stripe('/checkout/sessions?limit=40&status=complete')
+    send(res, 200, { items: r.data.filter((s) => s.metadata?.app === 'cyber-museum').map((s) => ({ id: 'stripe_' + s.id, amount: s.amount_total / 100, payer: (s.metadata?.payer || '').slice(0, 24), purpose: s.metadata?.purpose || 'donacion', at: s.created * 1000 })) })
   } catch (e) {
-    send(res, 502, { error: e.message })
+    send(res, 200, { items: [], error: String(e.message || e) })
   }
 }

@@ -5,6 +5,7 @@ import '@fontsource/roboto-mono/500.css'
 import './style.css'
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 import { Engine } from './core/engine'
 import { L, tx } from './core/i18n'
 import { CORRIDOR_END, LOBBY_R } from './world/building'
@@ -12,11 +13,15 @@ import { detectQuality, isTouch } from './core/util'
 import { content } from './content/store'
 import type { GameDoor, RoomId } from './content/types'
 import { payments, type PaymentEvent } from './payments/bus'
+import { checkSession } from './payments/provider'
 import { createSky } from './world/sky'
 import { createCloud } from './world/cloud'
 import { shared } from './world/materials'
+import { configurePbr } from './world/pbr'
 import { buildWorld, type World } from './world/world'
 import type { Hooks } from './world/rooms'
+import type { SpaceHooks } from './world/spaces'
+import type { ExtraHooks } from './world/extras'
 import { Controller } from './player/controller'
 import { createAvatar, type Avatar, type AvatarKind } from './player/avatar'
 import { Hud } from './ui/hud'
@@ -31,6 +36,7 @@ const params = new URLSearchParams(location.search)
 const quality = (params.get('q') as 'low' | 'mid' | 'high') || detectQuality()
 const ui = document.getElementById('ui')!
 const engine = new Engine(document.getElementById('gl') as HTMLCanvasElement, quality)
+configurePbr(engine.renderer, quality)
 const { scene, camera } = engine
 const xr = new XR(engine)
 const unlockAudio = () => audio.unlock()
@@ -38,8 +44,19 @@ addEventListener('pointerdown', unlockAudio)
 addEventListener('keydown', unlockAudio)
 
 const pmrem = new THREE.PMREMGenerator(engine.renderer)
+pmrem.compileEquirectangularShader()
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
-scene.environmentIntensity = 0.35
+scene.environmentIntensity = 0.5
+new RGBELoader().load(
+  import.meta.env.BASE_URL + 'env/night.hdr',
+  (hdr) => {
+    scene.environment = pmrem.fromEquirectangular(hdr).texture
+    hdr.dispose()
+    pmrem.dispose()
+  },
+  undefined,
+  (error) => console.warn('Night environment failed to load; using the studio fallback.', error),
+)
 
 const sky = createSky()
 sky.setPalette(content.data.settings.palette)
@@ -58,7 +75,18 @@ let controller: Controller | null = null
 const multi = new Multi()
 let me: { kind: AvatarKind; name: string } | null = null
 
-const hooks: Hooks = {
+const hooks: Hooks & SpaceHooks & ExtraHooks = {
+  openPiece: (h, p) => hud?.openPiece(h, p),
+  openHall: (h) => hud?.openHall(h),
+  openUrl: (url) => window.open(url, '_blank', 'noopener'),
+  goto: (target, title, kicker) => {
+    hud?.portal(kicker, title)
+    audio.whoosh()
+    setTimeout(() => controller?.place(target.x, target.z, target.yaw), 380)
+  },
+  openForum: () => hud?.openForum(),
+  openCalls: () => hud?.openCalls(),
+  openAbout: () => hud?.openAbout(),
   openArt: (a) => hud?.openArt(a),
   openShop: (p) => hud?.openShop(p),
   openGame: (g) => hud?.openGame(g, startGame),
@@ -66,6 +94,16 @@ const hooks: Hooks = {
   openEvents: () => hud?.openEvents(),
   donate: () => hud?.openPay(100, controller?.room === 'jardin' ? L('Una flor para el jardín', 'A flower for the garden') : L('Ofrenda a la nube', 'Offering to the cloud'), controller?.room === 'jardin' ? 'jardin' : 'donacion'),
   nextFilm: () => {},
+  openCatalog: (play) => hud?.openCatalog(play),
+  voice: () =>
+    multi
+      .voice()
+      .then((on) => hud?.toast(L('Micrófono', 'Microphone'), on ? L('Activo · te escuchan en la sala', 'Live · the room can hear you') : L('Silenciado', 'Muted')))
+      .catch(() => hud?.toast(L('Micrófono', 'Microphone'), L('Permiso denegado', 'Permission denied'))),
+  sit: (eye, look) => {
+    seat = { eye: eye.clone(), look: look.clone() }
+    hud?.setPrompt(L('Levantarse', 'Stand up'))
+  },
 }
 
 let world: World = buildWorld(content.data, hooks)
@@ -90,6 +128,13 @@ content.changed.on(() => {
     hud?.renderDrawer()
   }, 250)
 })
+
+content.pull()
+const paidId = params.get('paid')
+if (paidId) {
+  history.replaceState(null, '', location.pathname + location.hash)
+  checkSession(paidId).then((ev) => ev && payments.ingest(ev)).catch(() => {})
+}
 
 // ---------- payment reactions ----------
 let energy = 0
@@ -164,7 +209,7 @@ function startGame(g: GameDoor) {
 }
 
 function place(room: RoomId) {
-  const s = world.spawn(room)
+  const s = room === 'foro' ? world.forumSpawn() : room === 'juntas' ? world.juntasSpawn() : world.spawn(room)
   controller?.place(s.x, s.z, s.yaw)
 }
 
@@ -181,7 +226,7 @@ engine.onTick((dt, t) => {
   sky.uniforms.uEnergy.value = Math.min(1, energy)
   shared.lavender.value.copy(baseLav).lerp(hot, Math.min(1, energy * 0.8))
   cloudLight.color.copy(shared.lavender.value)
-  cloudLight.intensity = 110 + Math.min(1, energy) * 180
+  cloudLight.intensity = 66 + Math.min(1, energy) * 180
   engine.bloom.strength = (quality === 'low' ? 0.6 : 0.75) + Math.min(1, energy) * 0.3
   cloud.update(dt)
   cloud.points.rotation.y = t * 0.03
@@ -202,28 +247,40 @@ engine.onTick((dt, t) => {
     const y = 3 + Math.sin(landingP * Math.PI * 2) * 2 + landingP * 4
     camera.position.set(Math.sin(a) * r, y, Math.cos(a) * r)
     camera.lookAt(0, 7 + landingP * 2, 0)
-    world.tick(dt, t, 'lobby')
+    cloud.points.rotation.y = landingP * Math.PI * 1.5 + t * 0.02
+    cloud.points.scale.setScalar(1 + Math.sin(landingP * Math.PI) * 0.35)
+    world.tick(dt, t, 'lobby', true)
     return
   }
   if (viewHold) {
     camera.position.copy(viewHold[0])
     camera.lookAt(viewHold[1])
-    world.tick(dt, t, 'jardin')
+    world.tick(dt, t, 'jardin', mode !== 'museum')
     return
   }
   if (mode === 'cinematic' && cine) {
     cine.t += dt
     const u = Math.min(1, cine.t / cine.dur)
-    const e = u * u * (3 - 2 * u) * 0.25 + u * 0.75
+    const e = u * u * u * (u * (u * 6 - 15) + 10)
     camera.position.copy(cine.pos.getPoint(e))
     camera.lookAt(cine.look.getPoint(e))
     const seg = Math.min(cine.caps.length - 1, Math.floor(e * cine.caps.length))
     if (seg !== cine.seg) ((cine.seg = seg), cine.onSeg(seg))
-    world.tick(dt, t, cine.rooms[seg] ?? 'lobby')
+    world.tick(dt, t, cine.rooms[seg] ?? 'lobby', true)
     if (u >= 1) cine.end()
     return
   }
   if (!controller || !hud) return
+  if (seat && !xr.mode) {
+    controller.enabled = false
+    controller.avatar.group.visible = false
+    camera.position.lerp(seat.eye, Math.min(1, dt * 4))
+    camera.lookAt(seat.look)
+    const hallId = controller.room === 'salas' ? world.nav.find(controller.x, controller.z)?.name : undefined
+    world.tick(dt, t, controller.room, mode !== 'museum', hallId)
+    hud.setPrompt(L('Levantarse', 'Stand up'))
+    return
+  }
   controller.enabled = !hud.modalOpen
   if (xr.mode) {
     xr.poll(dt)
@@ -241,13 +298,21 @@ engine.onTick((dt, t) => {
   } else controller.avatar.group.visible = true
   audio.tick(dt, controller.speed, me?.kind === 'astral')
   hud.setRoom(controller.room)
-  world.tick(dt, t, controller.room)
+  const hallId = controller.room === 'salas' ? world.nav.find(controller.x, controller.z)?.name : undefined
+  world.tick(dt, t, controller.room, mode !== 'museum', hallId)
   // nearest interactable
   let best: (typeof world.interactables)[number] | null = null
   let bd = Infinity
+  const fx = Math.sin(controller.camYaw)
+  const fz = -Math.cos(controller.camYaw)
   for (const it of world.interactables) {
-    const d = Math.hypot(it.pos.x - controller.x, it.pos.z - controller.z)
-    if (d < it.r && d < bd && Math.abs(it.pos.y - controller.y) < 2) ((best = it), (bd = d))
+    const dx = it.pos.x - controller.x
+    const dz = it.pos.z - controller.z
+    const d = Math.hypot(dx, dz)
+    if (d >= it.r || Math.abs(it.pos.y - controller.y) >= 2) continue
+    const facing = d > 0.01 ? (dx * fx + dz * fz) / d : 1
+    const score = d + 1.5 * (1 - facing)
+    if (score < bd) ((best = it), (bd = score))
   }
   nearest = best
   hud.setPrompt(best?.label ?? null)
@@ -264,6 +329,7 @@ engine.onTick((dt, t) => {
     multi.broadcastPose({ x: +controller.x.toFixed(2), y: +controller.y.toFixed(2), z: +controller.z.toFixed(2), yaw: +controller.yaw.toFixed(3), speed: +controller.speed.toFixed(2), room: controller.room })
   }
 })
+let seat: { eye: THREE.Vector3; look: THREE.Vector3 } | null = null
 let nearest: World['interactables'][number] | null = null
 let cine: { t: number; dur: number; seg: number; pos: THREE.CatmullRomCurve3; look: THREE.CatmullRomCurve3; caps: [string, string][]; rooms: (RoomId | undefined)[]; onSeg: (i: number) => void; end: () => void } | null = null
 
@@ -345,7 +411,7 @@ async function enterMuseum(profile: { kind: AvatarKind; name: string }) {
   controller = new Controller(world.nav, av, camera, engine.renderer.domElement)
   hud = new Hud(ui)
   hud.playerName = profile.name
-  hud.act.on(() => nearest?.action())
+  hud.act.on(() => (seat ? ((seat = null), controller && (controller.avatar.group.visible = true)) : nearest?.action()))
   hud.teleport.on((r) => {
     hud!.portal(L('Viajando a', 'Travelling to'), r)
     audio.whoosh()
@@ -368,14 +434,33 @@ async function enterMuseum(profile: { kind: AvatarKind; name: string }) {
     hud!.chat(profile.name, text)
     multi.say(text)
   })
-  const start = (params.get('room') as RoomId) || 'lobby'
+  const meetCode = params.get('meet')
+  let meeting = meetCode ? content.data.meetings.find((m) => m.active && m.code === meetCode) : undefined
+  let inMeeting = false
+  if (meetCode) {
+    const r = await fetch(`./api/content?meet=${encodeURIComponent(meetCode)}&name=${encodeURIComponent(profile.name)}`, { cache: 'no-store' }).catch(() => null)
+    const j = r && r.status !== 503 ? await r.json().catch(() => null) : null
+    if (j) {
+      meeting = j.meeting
+      inMeeting = Boolean(j?.allowed)
+    } else {
+      const guests = meeting?.allowed.split(/\n|,/).map((x) => x.trim().toLowerCase()).filter(Boolean) ?? []
+      inMeeting = Boolean(meeting && (!guests.length || guests.includes(profile.name.trim().toLowerCase())))
+    }
+  }
+  if (meetCode && !inMeeting) hud.toast(L('Sala de juntas', 'Meeting room'), meeting ? L('Tu nombre no está en la lista de invitados', 'Your name is not on the guest list') : L('Enlace inválido o inactivo', 'Invalid or inactive link'))
+  const start = inMeeting ? 'juntas' : (params.get('room') as RoomId) || 'lobby'
   place(start)
   controller.enabled = true
   hud.setRoom(controller.room)
   hud.toast(L('Bienvenido', 'Welcome'), profile.name)
   hud.chat('', isTouch() ? L('Usa el joystick para caminar y arrastra para mirar.', 'Use the joystick to walk and drag to look around.') : L('Bienvenido a Cyber Museum. Presiona Enter para chatear.', 'Welcome to Cyber Museum. Press Enter to chat.'), true)
   if (content.data.settings.multiplayer && !params.has('solo')) {
-    multi.start(content.data.settings.roomName, { name: profile.name, kind: profile.kind })
+    multi.start(inMeeting ? `juntas-${meeting!.code}` : content.data.settings.roomName, { name: profile.name, kind: profile.kind })
+    if (inMeeting)
+      setTimeout(() => {
+        if (multi.peers.size >= 8) hud?.toast(L('Sala llena', 'Room full'), L('La sala de juntas admite 8 personas', 'The meeting room holds 8 people'))
+      }, 5000)
     hud.setOnline(1, multi.connected)
   }
 }

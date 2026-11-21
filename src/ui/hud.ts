@@ -1,7 +1,7 @@
 import { audio } from '../core/audio'
 import { L, tx, txList, langButton, bindLang } from '../core/i18n'
 import QRCode from 'qrcode'
-import type { Artwork, GameDoor, Product, RoomId } from '../content/types'
+import type { Artwork, GameDoor, Product, RoomId , Hall, Piece } from '../content/types'
 import { content } from '../content/store'
 import { paintClone } from '../core/gen2d'
 import { resolveMedia } from '../core/media'
@@ -9,7 +9,7 @@ import { Emitter, esc, h, isTouch, money, timeAgo, uid } from '../core/util'
 import { payments, type PaymentEvent, type PaymentPurpose } from '../payments/bus'
 import { getProvider } from '../payments/provider'
 
-export const ROOM_ORDER: RoomId[] = ['lobby', 'videosala', 'escultura', 'pintura', 'tienda', 'jardin', 'temporales', 'videojuegos', 'futuro']
+export const ROOM_ORDER: RoomId[] = ['lobby', 'videosala', 'escultura', 'pintura', 'tienda', 'jardin', 'foro', 'temporales', 'videojuegos', 'futuro']
 
 export class Hud {
   el: HTMLElement
@@ -267,10 +267,10 @@ export class Hud {
     const amounts = [20, 50, 100, 200, 500]
     const m = this.modal('pay', `<span class="kicker">${purpose === 'tienda' ? L('Compra', 'Purchase') : purpose === 'jardin' ? L('Jardín digital', 'Digital garden') : L('Apoyo', 'Support')}</span>
       <h2 class="serif">${esc(concept)}</h2>
-      <p class="desc">${L('Pago con CoDi / SPEI. Al confirmarse, la nube gaussiana entra en sobrecarga, la luz del museo cambia y crece una flor en el jardín para todos los visitantes.', 'Pay with CoDi / SPEI. Once confirmed, the Gaussian cloud overloads, the museum light changes and a flower grows in the garden for every visitor.')}</p>
+      <p class="desc">${L('Pago seguro con tarjeta (Stripe). Al confirmarse, la nube se enciende y crece una flor en el jardín para todos.', 'Secure card payment (Stripe). Once confirmed, the cloud lights up and a flower grows in the garden for everyone.')}</p>
       ${fixed ? '' : `<div class="amounts">${amounts.map((a) => `<button class="btn sm ${a === amount ? 'on' : ''}" data-a="${a}">${money(a)}</button>`).join('')}</div>`}
       <div class="form"><label>${L('Nombre que aparecerá en el museo', 'Name shown in the museum')}<input data-payer maxlength="24" value="${esc(this.playerName)}"></label></div>
-      <div class="actions"><button class="btn primary" data-go>${L('Generar QR', 'Generate QR')} · <span data-amt>${money(amount)}</span></button></div>
+      <div class="actions"><button class="btn primary" data-go>${L('Pagar', 'Pay')} · <span data-amt>${money(amount)}</span></button></div>
       <div class="qr hidden"></div>`)
     let amt = amount
     m.querySelectorAll<HTMLButtonElement>('[data-a]').forEach((b) => (b.onclick = () => {
@@ -292,8 +292,11 @@ export class Hud {
           await QRCode.toCanvas(cv, co.qrString, { width: 220, margin: 1, color: { dark: '#0b0a12', light: '#ece8ff' } })
           qr.append(cv)
         }
-        if (co.url) qr.append(h('a', { class: 'btn sm', href: co.url, target: '_blank', rel: 'noopener' }, L('Abrir link de pago', 'Open payment link')))
-        qr.append(h('p', { class: 'muted' }, co.simulated ? L(`Modo demo (${provider.name}) · sin API key de pey configurada en el backend.`, `Demo mode (${provider.name}) · no pey API key configured on the backend.`) : L('Escanea con la app de tu banco (CoDi). Esperando confirmación…', 'Scan with your bank app (CoDi). Waiting for confirmation…')))
+        if (co.url) {
+          window.open(co.url, '_blank', 'noopener')
+          qr.append(h('a', { class: 'btn primary sm', href: co.url, target: '_blank', rel: 'noopener' }, L('Abrir Stripe Checkout', 'Open Stripe Checkout')))
+        }
+        qr.append(h('p', { class: 'muted' }, co.simulated ? L('Modo demo · los pagos reales se activan al configurar Stripe.', 'Demo mode · real payments switch on once Stripe is configured.') : L('Completa el pago en la pestaña de Stripe. Esperando confirmación…', 'Finish paying in the Stripe tab. Waiting for confirmation…')))
         if (co.simulate) {
           const b = h('button', { class: 'btn primary sm' }, L('Simular pago recibido ✦', 'Simulate payment received ✦'))
           b.onclick = () => co.simulate!()
@@ -328,6 +331,94 @@ export class Hud {
     }
   }
 
+  async openPiece(hl: Hall, p: Piece) {
+    const vis = hl.pieces.filter((x) => x.visible)
+    const i = vis.findIndex((x) => x.id === p.id)
+    const prod = content.data.products.find((x) => x.id === p.productId)
+    const links = p.links.split(/\n|,/).map((x) => x.trim()).filter(Boolean)
+    const m = this.modal('art', `<div class="media"></div><div>
+      <span class="kicker">${esc(tx(hl, 'name'))}</span><h2 class="serif">${esc(tx(p, 'title'))}</h2>
+      <div class="meta">${esc(p.author)}${p.year ? ' · ' + esc(p.year) : ''}</div><p class="desc">${esc(tx(p, 'lore'))}</p>
+      <div class="tags">${links.map((u) => `<a class="chip" href="${esc(/^https?:/.test(u) ? u : 'https://' + u)}" target="_blank" rel="noopener">${esc(u.replace(/^https?:\/\/(www\.)?/, '').slice(0, 32))} ↗</a>`).join('')}${p.assets.filter((a) => a.kind === 'link').map((a) => `<a class="chip" href="${esc(a.url)}" target="_blank" rel="noopener">link ↗</a>`).join('')}</div>
+      <div class="actions">${p.donation ? `<button class="btn primary sm" data-support>${L('Apoyar al artista', 'Support the artist')} ♡</button>` : ''}${prod ? `<button class="btn sm" data-prod>${esc(prod.name)} · ${money(prod.price)}</button>` : ''}<div class="pager"><button class="icon-btn" data-prev>‹</button><span>${i + 1} / ${vis.length}</span><button class="icon-btn" data-next>›</button></div></div></div>`)
+    const media = m.querySelector('.media')!
+    const a = p.assets.find((x) => x.kind !== 'link' && x.kind !== 'audio')
+    if (a?.kind === 'model') media.innerHTML = `<div class="note" style="padding:20px">${L('Modelo 3D: visible en la sala.', '3D model: shown in the hall.')} <a href="${esc(a.url)}" target="_blank" rel="noopener">${L('descargar', 'download')}</a></div>`
+    else media.append(await (this.mediaEl(p.gen, p.seed, a?.url, a?.kind === 'gif' ? 'image' : a?.kind ?? 'generative')))
+    m.querySelector('[data-prev]')!.addEventListener('click', () => this.openPiece(hl, vis[(i - 1 + vis.length) % vis.length]))
+    m.querySelector('[data-next]')!.addEventListener('click', () => this.openPiece(hl, vis[(i + 1) % vis.length]))
+    m.querySelector('[data-support]')?.addEventListener('click', () => this.openPay(50, `${L('Apoyo', 'Support')} · ${tx(p, 'title')}`, 'donacion'))
+    m.querySelector('[data-prod]')?.addEventListener('click', () => prod && this.openShop(prod))
+  }
+  openHall(hl: Hall) {
+    this.modal('call', `<span class="kicker">${esc(tx(hl, 'theme'))}${hl.end ? ` · ${L('hasta', 'until')} ${esc(hl.end)}` : ''}</span><h2 class="serif">${esc(tx(hl, 'name'))}</h2><p class="desc" style="white-space:pre-line">${esc(tx(hl, 'curatorial'))}</p>`)
+  }
+  openAbout() {
+    const a = content.data.about
+    this.modal('call', `<span class="kicker">Ethercoded</span><h2 class="serif">${esc(tx(a, 'title'))}</h2><p class="desc" style="white-space:pre-line">${esc(tx(a, 'body'))}</p><p class="desc"><b>${L('Misión', 'Mission')}.</b> ${esc(tx(a, 'mission'))}</p><p class="muted">${esc(tx(a, 'credits'))}</p>`)
+  }
+  openForum() {
+    const ev = content.data.forum.filter((x) => x.visible).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
+    this.modal('events', `<span class="kicker">${L('Foro · Anfiteatro', 'Forum · Amphitheater')}</span><h2 class="serif">${L('Próximos eventos', 'Upcoming events')}</h2>
+      <div class="events">${ev.map((e) => `<div class="ev"><span class="kicker">${esc(e.date)} · ${esc(e.time)} · ${esc(e.kind)}</span><b>${esc(tx(e, 'title'))}</b><p class="muted">${esc(tx(e, 'description'))}</p></div>`).join('') || `<p class="muted">${L('Sin eventos programados.', 'No scheduled events.')}</p>`}</div>`)
+  }
+  openCalls(selected?: string) {
+    const calls = content.data.calls
+    const c = calls.find((x) => x.id === selected)
+    if (!c) {
+      this.modal('call', `<span class="kicker">${L('Convocatorias', 'Open calls')}</span><h2 class="serif">${L('Participa en el museo', 'Join the museum')}</h2>
+        <div class="events">${calls.map((x) => `<button class="ev btn ghost" data-call="${x.id}" style="text-align:left;display:block;width:100%"><span class="kicker" style="display:block">${x.open ? L('Abierta', 'Open') : L('Cerrada', 'Closed')} · ${L('cierre', 'deadline')} ${esc(x.deadline)}</span><b>${esc(tx(x, 'title'))}</b><p class="muted">${esc(tx(x, 'description'))}</p></button>`).join('')}</div>`)
+        .querySelectorAll<HTMLButtonElement>('[data-call]').forEach((b) => (b.onclick = () => this.openCalls(b.dataset.call)))
+      return
+    }
+    const m = this.modal('call', `<span class="kicker">${L('Términos y condiciones', 'Terms and conditions')}</span><h2 class="serif">${esc(tx(c, 'title'))}</h2><p class="desc" style="white-space:pre-line;max-height:34vh;overflow:auto">${esc(tx(c, 'terms'))}</p>
+      <label class="muted"><input type="checkbox" data-accept> ${L('Leí y acepto los términos', 'I have read and accept the terms')}</label>
+      <div class="actions"><button class="btn ghost sm" data-backcalls>‹ ${L('Convocatorias', 'Open calls')}</button><button class="btn primary sm" data-apply disabled>${c.open ? L('Aplicar', 'Apply') : L('Cerrada', 'Closed')}</button></div>`)
+    const acc = m.querySelector('[data-accept]') as HTMLInputElement
+    const ap = m.querySelector('[data-apply]') as HTMLButtonElement
+    acc.onchange = () => (ap.disabled = !acc.checked || !c.open)
+    m.querySelector('[data-backcalls]')!.addEventListener('click', () => this.openCalls())
+    ap.onclick = () => this.applyCall(c.id)
+  }
+  private applyCall(callId: string) {
+    const reg = JSON.parse(localStorage.getItem('cm.registration') || 'null') as { name: string; email: string } | null
+    const m = this.modal('call', `<span class="kicker">${reg ? L('Postulación', 'Application') : L('Registro', 'Registration')}</span><h2 class="serif">${reg ? esc(reg.name) : L('Crea tu registro de artista', 'Create your artist registration')}</h2>
+      <div class="form">${reg ? '' : `<label>${L('Nombre', 'Name')}<input data-n required maxlength="60"></label><label>Email<input data-e type="email" required maxlength="80"></label>`}
+      <label>${L('Título de la propuesta', 'Proposal title')}<input data-t maxlength="100"></label><label>${L('Portafolio / link', 'Portfolio / link')}<input data-l maxlength="200"></label><label>${L('Descripción', 'Description')}<textarea data-m maxlength="1500"></textarea></label></div>
+      <div class="actions"><button class="btn primary sm" data-send>${L('Enviar postulación', 'Send application')}</button></div><p class="muted" data-err></p>`)
+    m.querySelector('[data-send]')!.addEventListener('click', async () => {
+      const v = (k: string) => ((m.querySelector(`[data-${k}]`) as HTMLInputElement | null)?.value ?? '').trim()
+      const who = reg ?? { name: v('n'), email: v('e') }
+      if (!who.name || !/^\S+@\S+\.\S+$/.test(who.email) || !v('t')) return ((m.querySelector('[data-err]') as HTMLElement).textContent = L('Completa nombre, email válido y título.', 'Fill in name, a valid email and a title.'))
+      localStorage.setItem('cm.registration', JSON.stringify(who))
+      const sub = { id: 's' + Date.now().toString(36), name: who.name, email: who.email, title: v('t'), link: v('l'), message: v('m'), at: Date.now(), status: 'pendiente' as const, callId }
+      const st = await fetch('./api/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sub) }).then((r) => r.status).catch(() => 0)
+      if (st === 503) content.update((d) => d.submissions.unshift(sub))
+      else if (st !== 200) return ((m.querySelector('[data-err]') as HTMLElement).textContent = L('No se pudo enviar. Intenta de nuevo.', 'Could not send. Please try again.'))
+      this.modal('call', `<span class="kicker">${L('Recibido', 'Received')}</span><h2 class="serif">${L('Gracias por postularte', 'Thanks for applying')}</h2><p class="desc">${L('El equipo curatorial la revisará y te escribirá por email.', 'The curatorial team will review it and email you.')}</p>`)
+    })
+  }
+  openCatalog(play: (i: number) => void) {
+    const films = content.data.films.map((f, i) => ({ f, i })).filter(({ f }) => f.visible !== false && !f.ad)
+    const cats = [...new Set(films.map(({ f }) => f.category || L('Destacados', 'Featured')))]
+    const hue = (s: string) => [...s].reduce((a, ch) => a + ch.charCodeAt(0), 0) % 360
+    const m = this.modal('catalog', `<span class="kicker">${L('Videosala · Cartelera', 'Screening room · Catalog')}</span><h2 class="serif">${L('¿Qué proyectamos?', 'What shall we screen?')}</h2>
+      ${cats.map((cat) => `<h3 class="kicker" style="margin:14px 0 6px">${esc(cat)}</h3><div class="rail" style="display:flex;gap:10px;overflow-x:auto;padding-bottom:6px">${films.filter(({ f }) => (f.category || L('Destacados', 'Featured')) === cat).map(({ f, i }) => `<div class="poster" data-film="${i}" style="flex:0 0 150px;cursor:pointer;border-radius:10px;overflow:hidden;border:1px solid rgba(201,182,255,.25);background:${f.poster ? `url('${esc(f.poster)}') center/cover` : `linear-gradient(160deg,hsl(${hue(f.title)},60%,22%),#07060c)`}"><div style="height:200px;display:flex;flex-direction:column;justify-content:flex-end;padding:10px;background:linear-gradient(transparent 40%,rgba(7,6,12,.92))"><b style="font-size:13px">${esc(tx(f, 'title'))}</b><small class="muted">${esc([f.year, f.schedule].filter(Boolean).join(' · '))}</small><div class="row" style="gap:4px;margin-top:6px"><button class="btn sm primary" data-play="${i}">▶</button>${f.media ? `<button class="btn sm" data-full="${i}">⛶</button>` : ''}</div></div></div>`).join('')}</div>`).join('') || `<p class="muted">${L('Sin proyecciones.', 'No screenings.')}</p>`}
+      <p class="muted">${L('▶ proyecta en la pantalla del cine · ⛶ pantalla completa · siéntate en una butaca para verla desde tu lugar.', '▶ plays on the cinema screen · ⛶ fullscreen · take a seat to watch from your place.')}</p>`)
+    m.querySelectorAll<HTMLElement>('[data-play]').forEach((b) => (b.onclick = (e) => (e.stopPropagation(), play(Number(b.dataset.play)), this.closeModal())))
+    m.querySelectorAll<HTMLElement>('[data-film]').forEach((b) => (b.onclick = () => (play(Number(b.dataset.film)), this.closeModal())))
+    m.querySelectorAll<HTMLElement>('[data-full]').forEach((b) => (b.onclick = async (e) => {
+      e.stopPropagation()
+      const f = content.data.films[Number(b.dataset.full)]
+      const { resolveMedia } = await import('../core/media')
+      const url = await resolveMedia(f.media)
+      if (!url) return
+      const v = h('video', { src: url, controls: '', autoplay: '', playsinline: '', style: 'width:100%;max-height:70vh;background:#000;border-radius:10px' }) as HTMLVideoElement
+      const mm = this.modal('catalog', `<span class="kicker">${esc(f.category ?? '')}</span><h2 class="serif">${esc(tx(f, 'title'))}</h2><div data-v></div><p class="desc">${esc(tx(f, 'synopsis') || '')}</p>`)
+      mm.querySelector('[data-v]')!.append(v)
+      v.requestFullscreen?.().catch(() => {})
+    }))
+  }
   openEvents() {
     const ev = [...content.data.events].sort((a, b) => a.date.localeCompare(b.date))
     this.modal('events', `<span class="kicker">${L('Agenda', 'Calendar')}</span><h2 class="serif">${L('Eventos del museo', 'Museum events')}</h2>

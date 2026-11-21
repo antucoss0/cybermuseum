@@ -4,7 +4,7 @@ import type { Content, RoomId } from '../content/types'
 import { paint } from '../core/gen2d'
 import { Nav } from './nav'
 import { M, floorMaterial, label, shared } from './materials'
-import { archOutline, archPath, candelabra, chandelier, column, spire, vault, wall, windowFill, type Opening } from './gothic'
+import { archivolt, candelabra, chandelier, column, nave as buildNave, spire, type NaveBay, wall, windowFill } from './gothic'
 
 export const LOBBY_R = 26
 export const LOBBY_H = 18
@@ -26,24 +26,29 @@ export interface Wing {
   ang: number
   W: number
   L: number
+  H: number
   floorY: number
   open: boolean
   group: THREE.Group
+  corridorGroup: THREE.Group
+  shellGroup: THREE.Group
+  corridorBays: NaveBay[]
+  bays: NaveBay[]
   world(lx: number, lz: number, y?: number): THREE.Vector3
-  rect(lcx: number, lcz: number, hw: number, hl: number, y0?: number, y1?: number): void
+  rect(lcx: number, lcz: number, hw: number, hl: number, y0?: number, y1?: number, first?: boolean): void
   obstacle(lx: number, lz: number, r: number): void
   circle(lcx: number, lcz: number, r: number): void
 }
 
-export const WING_DEFS: { room: RoomId; k: number; W: number; L: number; rise?: number }[] = [
-  { room: 'videosala', k: 0, W: 18, L: 22 },
-  { room: 'escultura', k: 1, W: 22, L: 28, rise: 2.4 },
-  { room: 'pintura', k: 2, W: 14, L: 26 },
-  { room: 'tienda', k: 3, W: 16, L: 18 },
-  { room: 'jardin', k: 4, W: 44, L: 44 },
-  { room: 'temporales', k: 5, W: 16, L: 22 },
-  { room: 'videojuegos', k: 6, W: 11, L: 30 },
-  { room: 'futuro', k: 7, W: 16, L: 18 },
+export const WING_DEFS: { room: RoomId; k: number; W: number; L: number; H: number; rise?: number }[] = [
+  { room: 'videosala', k: 0, W: 18, L: 22, H: 12 },
+  { room: 'escultura', k: 1, W: 22, L: 28, H: 14, rise: 2.4 },
+  { room: 'pintura', k: 2, W: 14, L: 26, H: 11 },
+  { room: 'tienda', k: 3, W: 16, L: 18, H: 10 },
+  { room: 'jardin', k: 4, W: 44, L: 44, H: 10 },
+  { room: 'temporales', k: 5, W: 16, L: 22, H: 12 },
+  { room: 'videojuegos', k: 6, W: 11, L: 30, H: 10 },
+  { room: 'futuro', k: 7, W: 16, L: 18, H: 14 },
 ]
 
 let nebulaTex: THREE.CanvasTexture | null = null
@@ -80,33 +85,25 @@ export function galaxyWindowMat() {
         neb *= 0.75 + 0.25*sin(uTime*0.4 + seed.x*10.0) + uEnergy*0.8;
         vec3 col = neb + stars(vUv + seed, 40.0, 1.0) + stars(vUv*1.3 + seed*2.0, 90.0, 1.7)*0.7;
         float core = exp(-dot(c,c)*30.0) * (0.25 + 0.15*sin(uTime*0.7));
-        col += vec3(0.8,0.7,1.0)*core;
+        col += vec3(0.8,0.7,1.0)*core*0.6;
         gl_FragColor = vec4(col, 1.0);
       }`,
   })
   return galaxyMat
 }
 
-/** Gable end wall with pointed top (closes a vault of the same width/rise). */
-function gable(width: number, rise: number, depth: number, openings: Opening[]) {
-  const s = new THREE.Shape()
-  archPath(s, width + 0.8, rise + 0.4)
-  for (const o of openings) {
-    const p = new THREE.Path()
-    if (o.kind === 'round') p.absarc(o.x, o.y + o.h / 2, o.w / 2, 0, Math.PI * 2, true)
-    else archPath(p, o.w, o.h, o.x, o.y)
-    s.holes.push(p)
-  }
-  const g = new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: false, curveSegments: 12 })
-  g.translate(0, 0, -depth / 2)
-  return new THREE.Mesh(g, M.stone)
-}
-
 export function makeWing(root: THREE.Group, nav: Nav, def: (typeof WING_DEFS)[number], open: boolean): Wing {
   const ang = -(def.k * Math.PI) / 4
   const group = new THREE.Group()
+  group.name = `wing-content-${def.room}`
   group.rotation.y = ang
-  root.add(group)
+  const corridorGroup = new THREE.Group()
+  corridorGroup.name = `wing-corridor-${def.room}`
+  corridorGroup.rotation.y = ang
+  const shellGroup = new THREE.Group()
+  shellGroup.name = `wing-shell-${def.room}`
+  shellGroup.rotation.y = ang
+  root.add(corridorGroup, shellGroup, group)
   const c = Math.cos(ang)
   const s = Math.sin(ang)
   const floorY = def.rise ?? 0
@@ -116,94 +113,64 @@ export function makeWing(root: THREE.Group, nav: Nav, def: (typeof WING_DEFS)[nu
     ang,
     W: def.W,
     L: def.L,
+    H: def.H,
     floorY,
     open,
     group,
+    corridorGroup,
+    shellGroup,
+    corridorBays: [],
+    bays: [],
     world: (lx, lz, y = floorY) => new THREE.Vector3(lx * c + lz * s, y, -lx * s + lz * c),
-    rect: (lcx, lcz, hw, hl, y0 = floorY, y1 = y0) => {
-      nav.rect(def.room, lcx * c + lcz * s, -lcx * s + lcz * c, ang, hw, hl, y0, y1)
+    rect: (lcx, lcz, hw, hl, y0 = floorY, y1 = y0, first = false) => {
+      nav.rect(def.room, lcx * c + lcz * s, -lcx * s + lcz * c, ang, hw, hl, y0, y1, undefined, first)
     },
     obstacle: (lx, lz, r) => nav.obstacle(lx * c + lz * s, -lx * s + lz * c, r),
     circle: (lcx, lcz, r) => nav.circle(def.room, lcx * c + lcz * s, -lcx * s + lcz * c, r, floorY),
   }
-  // corridor
+  // Short narthex
   const cLen = CORRIDOR_END - LOBBY_R
-  const cor = vault(6, def.rise ? 9.5 : 7.5, cLen, 3)
-  cor.position.z = -LOBBY_R
-  group.add(cor)
-  const cf = new THREE.Mesh(new THREE.PlaneGeometry(6, cLen), floorMaterial(1))
-  cf.rotation.x = -Math.PI / 2
-  cf.position.set(0, 0.01, -LOBBY_R - cLen / 2)
+  const narthex = buildNave({ W: 6, H: def.rise ? 9.5 : 7.5, L: cLen, bay: 3.3, entrance: false, apse: false, background: galaxyWindowMat() })
+  narthex.group.name = `narthex-${def.room}`
+  narthex.group.position.z = -LOBBY_R
+  corridorGroup.add(narthex.group)
+  w.corridorBays = narthex.bays.map((slot) => ({
+    ...slot,
+    z: slot.z - LOBBY_R,
+    anchor: slot.anchor.clone().add(new THREE.Vector3(0, 0, -LOBBY_R)),
+  }))
   if (def.rise) {
     const steps = 12
     for (let i = 0; i < steps; i++) {
       const st = new THREE.Mesh(new THREE.BoxGeometry(5.6, ((i + 1) / steps) * def.rise, cLen / steps), i % 2 ? M.obsidian : M.stoneLight)
       st.position.set(0, (((i + 1) / steps) * def.rise) / 2, -LOBBY_R - (i + 0.5) * (cLen / steps))
-      group.add(st)
+      corridorGroup.add(st)
       const led = new THREE.Mesh(new THREE.BoxGeometry(5.6, 0.03, 0.04), M.neonSoft)
       led.position.set(0, ((i + 1) / steps) * def.rise + 0.01, -LOBBY_R - i * (cLen / steps) - 0.02)
-      group.add(led)
+      corridorGroup.add(led)
     }
-  } else group.add(cf)
+  }
   for (const side of [-1, 1]) {
-    const strip = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, cLen), M.neon)
-    strip.position.set(side * 2.85, (def.rise ?? 0) + 0.12, -LOBBY_R - cLen / 2)
-    group.add(strip)
+    const strip = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.025, cLen), M.neonSoft)
+    strip.position.set(side * 2.82, (def.rise ?? 0) + 0.12, -LOBBY_R - cLen / 2)
+    corridorGroup.add(strip)
   }
   w.rect(0, -LOBBY_R - cLen / 2 + 1.25, 2.9, cLen / 2 + 2.5, 0, floorY)
 
   if (def.room === 'jardin') return w
 
-  // room shell
-  const H = 11
+  // Exhibition nave
   const z0 = -CORRIDOR_END
-  const shell = new THREE.Group()
-  shell.position.set(0, floorY, z0)
-  group.add(shell)
-  const v = vault(def.W, H, def.L, 4)
-  shell.add(v)
-  const entry = gable(def.W, H, 0.8, [{ x: 0, y: 0, w: 5.2, h: 7.5 }, { x: 0, y: 8.2, w: 2.2, h: 2.2, kind: 'round' }])
-  shell.add(entry)
-  const back = gable(def.W, H, 0.8, [{ x: 0, y: 4.5, w: 4.2, h: 4.2, kind: 'round' }])
-  back.position.z = -def.L
-  shell.add(back)
-  const rose = windowFill(4.2, 4.2, true)
-  rose.position.set(0, 4.5, -def.L + 0.2)
-  shell.add(rose)
-  const roseBg = new THREE.Mesh(new THREE.CircleGeometry(2.1, 32), galaxyWindowMat())
-  roseBg.position.set(0, 6.6, -def.L - 0.05)
-  shell.add(roseBg)
-  const door = archOutline(5.2, 7.5, 0.07)
-  door.position.set(0, 0, 0.42)
-  shell.add(door)
-  const f = new THREE.Mesh(new THREE.PlaneGeometry(def.W, def.L), floorMaterial(2, new THREE.Vector2(0, 0)))
-  f.rotation.x = -Math.PI / 2
-  f.position.set(0, 0.01, -def.L / 2)
-  shell.add(f)
-  // side galaxy windows
-  const nWin = Math.max(2, Math.floor(def.L / 6))
-  const gmat = galaxyWindowMat()
-  for (let i = 0; i < nWin; i++) {
-    const z = -((i + 0.5) / nWin) * def.L
-    for (const side of [-1, 1]) {
-      const wf = windowFill(1.8, 4.2)
-      wf.position.set(side * (def.W / 2 - 0.04), 2.6, z)
-      wf.rotation.y = -side * (Math.PI / 2)
-      shell.add(wf)
-      const bg = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 4.2), gmat)
-      bg.position.set(side * (def.W / 2 + 0.02), 4.5, z)
-      bg.rotation.y = -side * (Math.PI / 2)
-      shell.add(bg)
-    }
-  }
-  for (const side of [-1, 1]) {
-    const strip = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, def.L), M.neon)
-    strip.position.set(side * (def.W / 2 - 0.1), 0.1, -def.L / 2)
-    shell.add(strip)
-    const top = strip.clone()
-    top.position.y = 7.2
-    shell.add(top)
-  }
+  const bayCount = Math.max(2, Math.round(def.L / (def.W / 2)))
+  const roomNave = buildNave({ W: def.W, H: def.H, L: def.L, bay: def.L / bayCount, background: galaxyWindowMat() })
+  roomNave.group.name = `nave-${def.room}`
+  roomNave.group.position.set(0, floorY, z0)
+  shellGroup.add(roomNave.group)
+  w.bays = roomNave.bays.map((slot) => ({
+    ...slot,
+    z: slot.z + z0,
+    anchor: slot.anchor.clone().add(new THREE.Vector3(0, floorY, z0)),
+  }))
   if (open) {
     w.rect(0, z0 - def.L / 2, def.W / 2, def.L / 2 - 0.3)
   } else {
@@ -212,20 +179,43 @@ export function makeWing(root: THREE.Group, nav: Nav, def: (typeof WING_DEFS)[nu
       new THREE.MeshBasicMaterial({ color: new THREE.Color('#9b7bff').multiplyScalar(0.9), transparent: true, opacity: 0.35, toneMapped: false, depthWrite: false }),
     )
     veil.position.set(0, 3.75, 0.5)
-    shell.add(veil)
+    roomNave.group.add(veil)
     const l = label(L('Próximamente', 'Coming soon'), L('en construcción', 'under construction'), 4.4)
     l.position.set(0, 3.5, 0.62)
-    shell.add(l)
+    roomNave.group.add(l)
   }
   return w
 }
 
-export function buildLobby(root: THREE.Group, nav: Nav, content: Content) {
+export function buildLobby(parent: THREE.Group, nav: Nav, content: Content) {
+  const root = new THREE.Group()
+  root.name = 'lobby'
+  parent.add(root)
   const apo = LOBBY_R
   const side = 2 * apo * Math.tan(Math.PI / SIDES)
   const floor = new THREE.Mesh(new THREE.CircleGeometry(apo + 1.2, 64), floorMaterial(2.2))
   floor.rotation.x = -Math.PI / 2
   root.add(floor)
+  const floorGlow = (radius: number, color: string, strength: number) => {
+    const glow = new THREE.Mesh(
+      new THREE.CircleGeometry(radius, 48),
+      new THREE.ShaderMaterial({
+        uniforms: { uColor: { value: new THREE.Color(color) }, uStrength: { value: strength } },
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        toneMapped: false,
+        vertexShader: `varying vec2 vUv; void main(){ vUv=uv*2.0-1.0; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+        fragmentShader: `varying vec2 vUv; uniform vec3 uColor; uniform float uStrength;
+          void main(){ float a=pow(max(0.0,1.0-dot(vUv,vUv)),2.2)*uStrength; gl_FragColor=vec4(uColor*a,a); }`,
+      }),
+    )
+    glow.rotation.x = -Math.PI / 2
+    glow.position.y = 0.025
+    root.add(glow)
+    return glow
+  }
+  floorGlow(10, '#9e8bff', 0.035)
   nav.circle('lobby', 0, 0, apo - 0.2)
   const doorGeo = wall(side + 0.02, LOBBY_H, 1, [
     { x: 0, y: 0, w: 5, h: 7.5 },
@@ -248,7 +238,7 @@ export function buildLobby(root: THREE.Group, nav: Nav, content: Content) {
       const k = i / 2
       const def = WING_DEFS.find((d) => d.k === k)!
       const info = content.rooms[def.room]
-      const fr = archOutline(5, 7.5, 0.08)
+      const fr = archivolt(5, 7.5)
       fr.position.z = 0.55
       panel.add(fr)
       const rw = windowFill(3.6, 3.6, true)
@@ -291,8 +281,9 @@ export function buildLobby(root: THREE.Group, nav: Nav, content: Content) {
     root.add(sp)
   }
   // galleries / LED bands
-  for (const y of [0.08, 8.2, 13.6, LOBBY_H - 0.1]) {
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(apo / Math.cos(Math.PI / SIDES) - 0.75, 0.05, 6, SIDES), M.neon)
+  const lobbyCornice = new THREE.MeshBasicMaterial({ color: '#c9a86a', transparent: true, opacity: 0.12, depthWrite: false, toneMapped: false })
+  for (const y of [8.2, 13.6]) {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(apo / Math.cos(Math.PI / SIDES) - 0.75, 0.008, 4, SIDES), lobbyCornice)
     ring.rotation.x = Math.PI / 2
     ring.rotation.z = Math.PI / SIDES
     ring.position.y = y
@@ -348,24 +339,7 @@ export function buildLobby(root: THREE.Group, nav: Nav, content: Content) {
     cof.material = M.coffer
     root.add(cof, rim)
   }
-  for (const y of [LOBBY_H + 0.15, LOBBY_H + 0.55]) {
-    const g = new THREE.Mesh(new THREE.TorusGeometry(domeR - 0.1, 0.12, 6, 96), M.gold)
-    g.rotation.x = Math.PI / 2
-    g.position.y = y
-    root.add(g)
-  }
-  for (const t of [0.35, 0.7]) {
-    const rr = Math.cos(t * (Math.PI / 2)) * domeR
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(rr, 0.06, 5, 48), M.neonSoft)
-    ring.rotation.x = Math.PI / 2
-    ring.position.y = LOBBY_H + Math.sin(t * (Math.PI / 2)) * domeR * domeY
-    root.add(ring)
-  }
   const oculusY = LOBBY_H + Math.sin(0.93 * (Math.PI / 2)) * domeR * domeY
-  const oculus = new THREE.Mesh(new THREE.TorusGeometry(Math.cos(0.93 * (Math.PI / 2)) * domeR, 0.12, 6, 32), M.neon)
-  oculus.rotation.x = Math.PI / 2
-  oculus.position.y = oculusY
-  root.add(oculus)
   const top = spire(18, 1.8)
   top.position.y = oculusY + 0.5
   root.add(top)
@@ -375,11 +349,12 @@ export function buildLobby(root: THREE.Group, nav: Nav, content: Content) {
   const disk = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 3.8, 0.45, 32), M.obsidian)
   disk.position.y = 0.22
   altar.add(disk)
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(3.6, 0.06, 6, 64), M.neon)
+  const marker = new THREE.MeshBasicMaterial({ color: '#c9a86a', transparent: true, opacity: 0.32, depthWrite: false, toneMapped: false })
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(3.6, 0.012, 4, 64), marker)
   ring.rotation.x = Math.PI / 2
   ring.position.y = 0.47
   altar.add(ring)
-  const ring2 = new THREE.Mesh(new THREE.TorusGeometry(2.4, 0.03, 6, 64), M.neonSoft)
+  const ring2 = new THREE.Mesh(new THREE.TorusGeometry(2.4, 0.008, 4, 64), marker)
   ring2.rotation.x = Math.PI / 2
   ring2.position.y = 0.48
   altar.add(ring2)
@@ -416,6 +391,8 @@ export function buildLobby(root: THREE.Group, nav: Nav, content: Content) {
     const ch = chandelier(i % 2 ? 1.8 : 2.4, i % 2 ? 14 : 20)
     ch.position.set(Math.cos(a) * 17, i % 2 ? 13.5 : 12.5, Math.sin(a) * 17)
     root.add(ch)
+    const pool = floorGlow(4.5, '#b89cff', 0.045)
+    pool.position.set(ch.position.x, 0.026, ch.position.z)
     chandeliers.push(ch)
   }
   const title = label('Cyber Museum', 'art · technology · eternity', 9)
@@ -423,5 +400,5 @@ export function buildLobby(root: THREE.Group, nav: Nav, content: Content) {
   title.scale.setScalar(1.8)
   title.userData.billboard = true
   root.add(title)
-  return { chandeliers, altar, title }
+  return { group: root, chandeliers, altar, title }
 }

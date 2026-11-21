@@ -55,7 +55,7 @@ export function createCloud(count: number) {
     uEnergy: shared.energy,
     uPulse: { value: 0 },
     uPulseSeed: { value: 0 },
-    uSize: { value: Math.min(window.devicePixelRatio, 2) * 52 },
+    uSize: { value: Math.min(window.devicePixelRatio, 2) * 48 },
     uLav: shared.lavender,
   }
   const mat = new THREE.ShaderMaterial({
@@ -105,9 +105,9 @@ export function createCloud(count: number) {
         vec3 lav = vec3(0.72, 0.6, 1.0);
         vec3 blue = vec3(0.35, 0.45, 1.0);
         vec3 white = vec3(1.0);
-        vCol = mix(mix(lav, blue, aSeed.z), white, pow(aSeed.x, 6.0) + e*0.3 + wave);
+        vCol = mix(mix(lav, blue, aSeed.z), white, min(0.35, pow(aSeed.x, 6.0)*0.35 + e*0.08 + wave*0.1));
         vCol = mix(vCol, vec3(1.0, 0.55, 0.95), e * 0.35 * aSeed.y);
-        vA = (0.5 + 0.5*aSeed.x) * (0.75 + e*0.8);
+        vA = (0.5 + 0.5*aSeed.x) * (0.75 + e*0.8) * 0.65;
       }`,
     fragmentShader: /* glsl */ `
       varying vec3 vCol; varying float vA;

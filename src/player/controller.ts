@@ -55,12 +55,13 @@ export class Controller {
   }
 
   place(x: number, z: number, yaw: number) {
-    this.x = x
-    this.z = z
+    const point = this.nav.freePoint(x, z) ?? { x, z }
+    this.x = point.x
+    this.z = point.z
     this.yaw = yaw
     this.camYaw = yaw
-    const r = this.nav.find(x, z, 0)
-    this.y = r ? this.nav.heightIn(r, x, z) : 0
+    const r = this.nav.find(this.x, this.z, 0)
+    this.y = r ? this.nav.heightIn(r, this.x, this.z) : 0
     this.room = r?.room ?? 'lobby'
     this.snapCamera()
   }
@@ -86,19 +87,23 @@ export class Controller {
     const run = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight') || mag > 0.92
     const target = mag * (run ? 6.5 : 3.6)
     this.speed = damp(this.speed, target, 10, dt)
+    let dx = 0
+    let dz = 0
     if (mag > 0.05) {
       const a = Math.atan2(ix, iz) + this.camYaw
       this.yaw = angleLerp(this.yaw, a, 1 - Math.exp(-12 * dt))
       const fx = Math.sin(a)
       const fz = -Math.cos(a)
-      const r = this.nav.move(this.x, this.z, fx * this.speed * dt, fz * this.speed * dt)
-      this.x = r.x
-      this.z = r.z
-      this.y = damp(this.y, r.y, 18, dt)
-      this.room = r.room
-      // camera gently follows heading when moving forward
-      if (iz > 0.2 && Math.abs(ix) < 0.3) this.camYaw = angleLerp(this.camYaw, this.yaw, 1 - Math.exp(-0.8 * dt))
+      dx = fx * this.speed * dt
+      dz = fz * this.speed * dt
     }
+    const r = this.nav.move(this.x, this.z, dx, dz)
+    this.x = r.x
+    this.z = r.z
+    this.y = damp(this.y, r.y, 18, dt)
+    this.room = r.room
+    // camera gently follows heading when moving forward
+    if (mag > 0.05 && iz > 0.2 && Math.abs(ix) < 0.3) this.camYaw = angleLerp(this.camYaw, this.yaw, 1 - Math.exp(-0.8 * dt))
     this.avatar.group.position.set(this.x, this.y, this.z)
     this.avatar.group.rotation.y = -this.yaw
     this.avatar.update(dt, this.speed, t)
