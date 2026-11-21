@@ -84,9 +84,10 @@ function gallery(w: Wing, c: Content, add: (i: Interactable) => void, hooks: Hoo
     const side = bay?.side ?? (overflow % 2 === 0 ? -1 : 1)
     const lx = bay ? bay.anchor.x - side * 1.15 : side * (w.W / 4)
     const lz = bay?.z ?? z0 - w.L + 1 + spacing / 2 + Math.floor(overflow / 2) * spacing
-    const st = paintingStele(a, 2.4, !bay)
+    const size = bay ? 2.4 : Math.max(0.6, Math.min(2.4, spacing - 1.2))
+    const st = paintingStele(a, size, !bay)
     local(w, st, lx, lz, 0, side * -Math.PI / 2)
-    w.obstacle(lx, lz, 1.0)
+    w.obstacle(lx, lz, bay ? 1.0 : Math.min(1.0, spacing / 2 - 0.1))
     const label = `${L('Ver', 'View')} · ${tx(a, 'title')}`
     add({ id: a.id, pos: w.world(lx - side * 1.6, lz), r: 2.2, label, room: w.room, action: () => hooks.openArt(a) })
     if (!bay) add({ id: a.id + '-back', pos: w.world(lx + side * 1.6, lz), r: 2.2, label, room: w.room, action: () => hooks.openArt(a) })
