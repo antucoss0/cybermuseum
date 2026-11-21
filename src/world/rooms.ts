@@ -816,14 +816,14 @@ const builders: Partial<Record<RoomId, Builder>> = {
         prototypes.forEach((prototype, variant) => {
           prototype.updateMatrixWorld(true)
           const placements: THREE.Matrix4[] = []
-          const count = variant === 2 ? 8 : 36
+          const count = variant === 2 ? 8 : 52
           for (let i = 0; i < count; i++) {
             const cluster = i % 10
             const a = (cluster / 10) * Math.PI * 2 + (rng() - 0.5) * 0.5
-            const r = 7 + rng() * 13
+            const r = 6.6 + rng() * 8.4
             let lx = Math.cos(a) * r
             let lz = cz + Math.sin(a) * r
-            let scale = 0.58 + rng() * 0.68
+            let scale = variant === 2 ? 0.5 + rng() * 0.25 : 0.88 + rng() * 0.55
             if (variant === 1 && i < 8) {
               lx = (i % 2 ? 1 : -1) * 4.1
               lz = z0 - 5 - Math.floor(i / 2) * 1.45
@@ -835,12 +835,12 @@ const builders: Partial<Record<RoomId, Builder>> = {
               scale = 1.7 + rng() * 0.35
             } else if (variant === 3) {
               const path = gardenPaths[i % gardenPaths.length]
-              const point = path.getPointAt((i + 0.5) / count)
-              const tangent = path.getTangentAt((i + 0.5) / count)
+              const point = path.getPointAt(((i % 26) + 0.5) / 26)
+              const tangent = path.getTangentAt(((i % 26) + 0.5) / 26)
               const offset = (i % 2 ? 1 : -1) * (1.1 + rng() * 1.4)
               lx = point.x + tangent.z * offset
               lz = point.z - tangent.x * offset
-              scale = 0.42 + rng() * 0.38
+              scale = 0.55 + rng() * 0.45
             }
             const placement = new THREE.Object3D()
             placement.position.set(lx, w.floorY, lz)
