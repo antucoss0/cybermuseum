@@ -50,11 +50,11 @@ export function shopDecor(w: Wing, c: Content) {
     for (let k = 0; k < 2; k++) {
       const pts: THREE.Vector3[] = []
       for (let i = 0; i <= 10; i++) pts.push(new THREE.Vector3(sd * (w.W / 2 - 0.15), 2.4 + k * 2 + (i % 2 ? 0.7 : 0), z0 - 1 - (i / 10) * (w.L - 2)))
-      const tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.2), 120, 0.035, 6), new THREE.MeshBasicMaterial({ color: cols[(k + (sd > 0 ? 1 : 0)) % 4], toneMapped: false }))
+      const tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.2), 120, 0.015, 6), new THREE.MeshBasicMaterial({ color: cols[(k + (sd > 0 ? 1 : 0)) % 4], toneMapped: false }))
       g.add(tube)
     }
   for (let i = 0; i < 5; i++) {
-    const arc = new THREE.Mesh(new THREE.TorusGeometry(w.W / 2 - 0.6, 0.04, 6, 48, Math.PI), new THREE.MeshBasicMaterial({ color: cols[i % 4], toneMapped: false }))
+    const arc = new THREE.Mesh(new THREE.TorusGeometry(w.W / 2 - 0.6, 0.018, 6, 48, Math.PI), new THREE.MeshBasicMaterial({ color: cols[i % 4], toneMapped: false }))
     arc.position.set(0, 4.2, z0 - 2 - i * ((w.L - 4) / 4))
     g.add(arc)
   }
@@ -64,7 +64,7 @@ export function shopDecor(w: Wing, c: Content) {
   g.add(rack)
   const pod = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.6, 0.4, 32), new THREE.MeshStandardMaterial({ color: '#0d0b16', metalness: 0.8, roughness: 0.2 }))
   pod.position.y = 0.2
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.03, 6, 64), new THREE.MeshBasicMaterial({ color: '#ff4fd8', toneMapped: false }))
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.018, 6, 64), new THREE.MeshBasicMaterial({ color: '#b89cff', toneMapped: false }))
   ring.rotation.x = Math.PI / 2
   ring.position.y = 0.42
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 2.6, 8), new THREE.MeshStandardMaterial({ color: '#d9d4e8', metalness: 1, roughness: 0.2 }))

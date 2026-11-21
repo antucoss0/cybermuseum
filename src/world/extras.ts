@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { L, tx } from '../core/i18n'
 import type { Content } from '../content/types'
 import { M } from './materials'
+import { P } from './pbr'
 import { column } from './gothic'
 import { CORRIDOR_END, type Interactable, type Wing } from './building'
 import type { Nav } from './nav'
@@ -24,7 +25,7 @@ export function buildExtras(root: THREE.Group, nav: Nav, c: Content, wings: Wing
   if (gw) {
     const gz = -CORRIDOR_END - 22
     gw.rect(0, gz - 25, 2.2, 4)
-    const path = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.3, 8), M.obsidian)
+    const path = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.3, 8), P.stoneCarved)
     path.position.copy(gw.world(0, gz - 25, -0.15)).sub(gw.group.position)
     gw.group.add(path)
     const ctr = gw.world(0, gz - 45)
@@ -39,16 +40,18 @@ export function buildExtras(root: THREE.Group, nav: Nav, c: Content, wings: Wing
     const base = new THREE.Mesh(new THREE.CylinderGeometry(19, 12, 6, 48), M.stone)
     base.position.y = -3.01
     g.add(base)
-    const floor = new THREE.Mesh(new THREE.CircleGeometry(18.5, 64), M.stoneLight)
+    const floor = new THREE.Mesh(new THREE.CircleGeometry(18.5, 64), P.marbleBlack)
     floor.rotation.x = -Math.PI / 2
     g.add(floor)
     // stepped seating arcs facing the stage (stage sits on the far side, local -z)
     for (let r = 0; r < 5; r++) {
       const rad = 9 + r * 1.8
-      const tier = new THREE.Mesh(new THREE.RingGeometry(rad, rad + 1.8, 48, 1, Math.PI * 0.15, Math.PI * 0.7), M.marble)
+      const tier = new THREE.Mesh(new THREE.RingGeometry(rad, rad + 1.8, 48, 1, Math.PI * 0.15, Math.PI * 0.7), P.stoneCarved)
       tier.rotation.x = -Math.PI / 2
       tier.position.set(0, 0.35 + r * 0.35, -4)
-      g.add(tier)
+      const riser = new THREE.Mesh(new THREE.CylinderGeometry(rad + 1.8, rad + 1.8, 0.38, 48, 1, true, Math.PI * 0.15, Math.PI * 0.7), M.stone)
+      riser.position.set(0, 0.16 + r * 0.35, -4)
+      g.add(tier, riser)
       const lip = new THREE.Mesh(new THREE.TorusGeometry(rad, 0.03, 4, 48, Math.PI * 0.7), M.neonSoft)
       lip.rotation.set(-Math.PI / 2, 0, Math.PI * 0.15)
       lip.position.set(0, 0.38 + r * 0.35, -4)
@@ -78,6 +81,12 @@ export function buildExtras(root: THREE.Group, nav: Nav, c: Content, wings: Wing
     for (const s of [-1, 1]) {
       const col = column(9, 0.35)
       col.position.set(s * 5.5, 1, 11)
+      g.add(col)
+    }
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2
+      const col = column(9, 0.42)
+      col.position.set(Math.cos(a) * 16.4, 0, Math.sin(a) * 16.4)
       g.add(col)
     }
     const next = c.forum.filter((e) => e.visible).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))[0]

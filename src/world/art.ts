@@ -5,6 +5,7 @@ import { paint } from '../core/gen2d'
 import { resolveMedia } from '../core/media'
 import { mulberry32 } from '../core/util'
 import { M } from './materials'
+import { P } from './pbr'
 import { archOutline } from './gothic'
 
 export function textureFor(gen: string | undefined, seed: number | undefined, media?: string, kind?: string) {
@@ -51,10 +52,10 @@ export function paintingStele(a: Artwork, w = 2.4) {
   const fr = archOutline(w + 0.3, h + 0.5, 0.045)
   fr.position.set(0, 1.05, 0.23)
   g.add(fr)
-  const base = new THREE.Mesh(new THREE.BoxGeometry(w + 1.2, 0.2, 1.2), M.stoneLight)
+  const base = new THREE.Mesh(new THREE.BoxGeometry(w + 1.2, 0.2, 1.2), P.marbleBlack)
   base.position.y = 0.1
   g.add(base)
-  const led = new THREE.Mesh(new THREE.BoxGeometry(w + 1.2, 0.04, 0.04), M.neon)
+  const led = new THREE.Mesh(new THREE.BoxGeometry(w + 1.2, 0.035, 0.035), P.gold)
   led.position.set(0, 0.22, 0.6)
   g.add(led)
   return g
@@ -63,10 +64,10 @@ export function paintingStele(a: Artwork, w = 2.4) {
 /** Generative real-time sculpture on a pedestal. */
 export function sculpture(a: Artwork) {
   const g = new THREE.Group()
-  const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.05, 1.1, 8), M.obsidian)
+  const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.05, 1.1, 8), P.marbleBlack)
   ped.position.y = 0.55
   g.add(ped)
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.03, 4, 32), M.neon)
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.03, 4, 32), P.gold)
   ring.rotation.x = Math.PI / 2
   ring.position.y = 1.11
   g.add(ring)
