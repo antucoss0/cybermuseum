@@ -520,7 +520,9 @@ export function nave(definition: NaveDefinition): Nave {
   if (definition.apse !== false) {
     const roseW = Math.min(4.2, W * 0.42)
     const roseY = H * 0.56
-    group.add(gableWall(W, H, 0.72, [{ x: 0, y: roseY, w: roseW, h: roseW, kind: 'round' }]))
+    const apse = gableWall(W, H, 0.72, [{ x: 0, y: roseY, w: roseW, h: roseW, kind: 'round' }])
+    apse.position.z = -L
+    group.add(apse)
     const rose = windowFill(roseW, roseW, true, definition.background)
     rose.position.set(0, roseY, -L - 0.39)
     group.add(rose)
