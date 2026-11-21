@@ -261,7 +261,7 @@ export function buildSpaces(root: THREE.Group, nav: Nav, c: Content, wings: Wing
     root.add(g)
     hallGroups.set(hall.id, g)
     nav.rect('salas', cx, cz, 0, W / 2, Lh / 2, 0, 0, hall.id)
-    const built = buildNave({ W, H, L: Lh, bay: 5.5, floorAlbedo: 1.03 })
+    const built = buildNave({ W, H, L: Lh, bay: 5.5, floorAlbedo: 1.25 })
     g.add(built.group)
     g.add(new THREE.HemisphereLight('#f3e9ff', '#4c405a', 1))
     for (const [y, z] of [[H - 1.2, -Lh / 3], [4.8, -Lh * 0.72]]) {
