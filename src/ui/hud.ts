@@ -397,6 +397,27 @@ export class Hud {
       this.modal('call', `<span class="kicker">${L('Recibido', 'Received')}</span><h2 class="serif">${L('Gracias por postularte', 'Thanks for applying')}</h2><p class="desc">${L('El equipo curatorial la revisará y te escribirá por email.', 'The curatorial team will review it and email you.')}</p>`)
     })
   }
+  openCatalog(play: (i: number) => void) {
+    const films = content.data.films.map((f, i) => ({ f, i })).filter(({ f }) => f.visible !== false && !f.ad)
+    const cats = [...new Set(films.map(({ f }) => f.category || L('Destacados', 'Featured')))]
+    const hue = (s: string) => [...s].reduce((a, ch) => a + ch.charCodeAt(0), 0) % 360
+    const m = this.modal('catalog', `<span class="kicker">${L('Videosala · Cartelera', 'Screening room · Catalog')}</span><h2 class="serif">${L('¿Qué proyectamos?', 'What shall we screen?')}</h2>
+      ${cats.map((cat) => `<h3 class="kicker" style="margin:14px 0 6px">${esc(cat)}</h3><div class="rail" style="display:flex;gap:10px;overflow-x:auto;padding-bottom:6px">${films.filter(({ f }) => (f.category || L('Destacados', 'Featured')) === cat).map(({ f, i }) => `<div class="poster" data-film="${i}" style="flex:0 0 150px;cursor:pointer;border-radius:10px;overflow:hidden;border:1px solid rgba(201,182,255,.25);background:${f.poster ? `url('${esc(f.poster)}') center/cover` : `linear-gradient(160deg,hsl(${hue(f.title)},60%,22%),#07060c)`}"><div style="height:200px;display:flex;flex-direction:column;justify-content:flex-end;padding:10px;background:linear-gradient(transparent 40%,rgba(7,6,12,.92))"><b style="font-size:13px">${esc(tx(f, 'title'))}</b><small class="muted">${esc([f.year, f.schedule].filter(Boolean).join(' · '))}</small><div class="row" style="gap:4px;margin-top:6px"><button class="btn sm primary" data-play="${i}">▶</button>${f.media ? `<button class="btn sm" data-full="${i}">⛶</button>` : ''}</div></div></div>`).join('')}</div>`).join('') || `<p class="muted">${L('Sin proyecciones.', 'No screenings.')}</p>`}
+      <p class="muted">${L('▶ proyecta en la pantalla del cine · ⛶ pantalla completa · siéntate en una butaca para verla desde tu lugar.', '▶ plays on the cinema screen · ⛶ fullscreen · take a seat to watch from your place.')}</p>`)
+    m.querySelectorAll<HTMLElement>('[data-play]').forEach((b) => (b.onclick = (e) => (e.stopPropagation(), play(Number(b.dataset.play)), this.closeModal())))
+    m.querySelectorAll<HTMLElement>('[data-film]').forEach((b) => (b.onclick = () => (play(Number(b.dataset.film)), this.closeModal())))
+    m.querySelectorAll<HTMLElement>('[data-full]').forEach((b) => (b.onclick = async (e) => {
+      e.stopPropagation()
+      const f = content.data.films[Number(b.dataset.full)]
+      const { resolveMedia } = await import('../core/media')
+      const url = await resolveMedia(f.media)
+      if (!url) return
+      const v = h('video', { src: url, controls: '', autoplay: '', playsinline: '', style: 'width:100%;max-height:70vh;background:#000;border-radius:10px' }) as HTMLVideoElement
+      const mm = this.modal('catalog', `<span class="kicker">${esc(f.category ?? '')}</span><h2 class="serif">${esc(tx(f, 'title'))}</h2><div data-v></div><p class="desc">${esc(tx(f, 'synopsis') || '')}</p>`)
+      mm.querySelector('[data-v]')!.append(v)
+      v.requestFullscreen?.().catch(() => {})
+    }))
+  }
   openEvents() {
     const ev = [...content.data.events].sort((a, b) => a.date.localeCompare(b.date))
     this.modal('events', `<span class="kicker">${L('Agenda', 'Calendar')}</span><h2 class="serif">${L('Eventos del museo', 'Museum events')}</h2>

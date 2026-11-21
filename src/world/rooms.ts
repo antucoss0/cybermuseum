@@ -47,6 +47,8 @@ export interface Hooks {
   openEvents(): void
   donate(): void
   nextFilm(): void
+  openCatalog(play: (i: number) => void): void
+  sit(eye: THREE.Vector3, look: THREE.Vector3): void
 }
 
 export interface RoomRuntime {
@@ -316,9 +318,9 @@ const builders: Partial<Record<RoomId, Builder>> = {
     let n = 0
     for (let r = 0; r < rows; r++) {
       const lz = z0 - 4.5 - r * 2.1
-      const rise = r * 0.32
+      const rise = (rows - 1 - r) * 0.32
       const tier = new THREE.Mesh(new THREE.BoxGeometry(w.W - 2, 0.32, 2.1), M.obsidian)
-      if (r > 0) local(w, tier, 0, lz, rise - 0.16)
+      if (rise > 0) local(w, tier, 0, lz, rise - 0.16)
       const step = new THREE.Mesh(new THREE.BoxGeometry(w.W - 2, 0.025, 0.03), M.neonSoft)
       local(w, step, 0, lz + 1.05, rise + 0.01)
       for (let k = 0; k < per; k++) {
@@ -326,13 +328,16 @@ const builders: Partial<Record<RoomId, Builder>> = {
         const lx = (k - 4.5) * 1.15
         mtx.makeTranslation(lx, w.floorY + rise + 0.45, lz)
         seats.setMatrixAt(n, mtx)
-        mtx.makeTranslation(lx, w.floorY + rise + 0.85, lz - 0.32)
+        mtx.makeTranslation(lx, w.floorY + rise + 0.85, lz + 0.32)
         backs.setMatrixAt(n, mtx)
         mtx.makeTranslation(lx - 0.43, w.floorY + rise + 0.5, lz)
         arms.setMatrixAt(n, mtx)
         n++
         w.obstacle(lx, lz, 0.5)
       }
+      const eye = w.world(-1.15 * 0.5 - 1.15, lz - 0.05, rise + 1.15)
+      const look = w.world(0, z0 - w.L + 1.2, 4.6)
+      add({ id: 'seat' + r, pos: w.world(0, lz), r: 1, label: L('Sentarse en la butaca', 'Take a seat'), room: w.room, action: () => hooks.sit(eye, look) })
     }
     seats.count = backs.count = arms.count = n
     for (const im of [seats, backs, arms]) local(w, im, 0, 0, 0)
@@ -394,7 +399,7 @@ const builders: Partial<Record<RoomId, Builder>> = {
     }
     setFilm(0)
     hooks.nextFilm = () => setFilm(film + 1)
-    add({ id: 'film', pos: w.world(0, z0 - 3), r: 2.5, label: L('Cambiar proyección', 'Change screening'), room: w.room, action: () => hooks.nextFilm() })
+    add({ id: 'film', pos: w.world(0, z0 - 2.6), r: 1.8, label: L('Cartelera · elegir proyección', 'Catalog · choose a screening'), room: w.room, action: () => hooks.openCatalog(setFilm) })
     let acc = 0
     return {
       tick: (dt, t, here) => {

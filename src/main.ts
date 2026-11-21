@@ -79,6 +79,11 @@ const hooks: Hooks & SpaceHooks = {
   openEvents: () => hud?.openEvents(),
   donate: () => hud?.openPay(100, controller?.room === 'jardin' ? L('Una flor para el jardín', 'A flower for the garden') : L('Ofrenda a la nube', 'Offering to the cloud'), controller?.room === 'jardin' ? 'jardin' : 'donacion'),
   nextFilm: () => {},
+  openCatalog: (play) => hud?.openCatalog(play),
+  sit: (eye, look) => {
+    seat = { eye: eye.clone(), look: look.clone() }
+    hud?.setPrompt(L('Levantarse', 'Stand up'))
+  },
 }
 
 let world: World = buildWorld(content.data, hooks)
@@ -234,7 +239,7 @@ engine.onTick((dt, t) => {
   if (mode === 'cinematic' && cine) {
     cine.t += dt
     const u = Math.min(1, cine.t / cine.dur)
-    const e = u * u * (3 - 2 * u) * 0.25 + u * 0.75
+    const e = u * u * u * (u * (u * 6 - 15) + 10)
     camera.position.copy(cine.pos.getPoint(e))
     camera.lookAt(cine.look.getPoint(e))
     const seg = Math.min(cine.caps.length - 1, Math.floor(e * cine.caps.length))
@@ -244,6 +249,15 @@ engine.onTick((dt, t) => {
     return
   }
   if (!controller || !hud) return
+  if (seat && !xr.mode) {
+    controller.enabled = false
+    controller.avatar.group.visible = false
+    camera.position.lerp(seat.eye, Math.min(1, dt * 4))
+    camera.lookAt(seat.look)
+    world.tick(dt, t, controller.room)
+    hud.setPrompt(L('Levantarse', 'Stand up'))
+    return
+  }
   controller.enabled = !hud.modalOpen
   if (xr.mode) {
     xr.poll(dt)
@@ -284,6 +298,7 @@ engine.onTick((dt, t) => {
     multi.broadcastPose({ x: +controller.x.toFixed(2), y: +controller.y.toFixed(2), z: +controller.z.toFixed(2), yaw: +controller.yaw.toFixed(3), speed: +controller.speed.toFixed(2), room: controller.room })
   }
 })
+let seat: { eye: THREE.Vector3; look: THREE.Vector3 } | null = null
 let nearest: World['interactables'][number] | null = null
 let cine: { t: number; dur: number; seg: number; pos: THREE.CatmullRomCurve3; look: THREE.CatmullRomCurve3; caps: [string, string][]; rooms: (RoomId | undefined)[]; onSeg: (i: number) => void; end: () => void } | null = null
 
@@ -365,7 +380,7 @@ async function enterMuseum(profile: { kind: AvatarKind; name: string }) {
   controller = new Controller(world.nav, av, camera, engine.renderer.domElement)
   hud = new Hud(ui)
   hud.playerName = profile.name
-  hud.act.on(() => nearest?.action())
+  hud.act.on(() => (seat ? ((seat = null), controller && (controller.avatar.group.visible = true)) : nearest?.action()))
   hud.teleport.on((r) => {
     hud!.portal(L('Viajando a', 'Travelling to'), r)
     audio.whoosh()
