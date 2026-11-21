@@ -41,22 +41,32 @@ export function buildExtras(root: THREE.Group, nav: Nav, c: Content, wings: Wing
     base.position.y = -3.01
     g.add(base)
     const forumMarble = P.marbleBlack.clone()
-    forumMarble.color.set('#352d46')
+    forumMarble.color.set('#171321')
+    const seatingStone = P.stoneCarved.clone()
+    seatingStone.color.set('#625b70')
+    const seatingRiser = M.stone.clone()
+    seatingRiser.color.set('#282334')
+    const forumGold = P.gold.clone()
+    forumGold.color.set('#94703a')
+    forumGold.emissive.set('#110b03')
+    forumGold.emissiveIntensity = 0.06
+    forumGold.roughness = 0.48
+    forumGold.metalness = 0.75
     const floor = new THREE.Mesh(new THREE.CircleGeometry(18.5, 64), forumMarble)
     floor.rotation.x = -Math.PI / 2
     g.add(floor)
     // stepped seating arcs facing the stage (stage sits on the far side, local -z)
     for (let r = 0; r < 5; r++) {
       const rad = 9 + r * 1.8
-      const tier = new THREE.Mesh(new THREE.RingGeometry(rad, rad + 1.8, 48, 1, Math.PI * 0.05, Math.PI * 0.9), P.stoneCarved)
+      const tier = new THREE.Mesh(new THREE.RingGeometry(rad, rad + 1.8, 48, 1, Math.PI * 0.05, Math.PI * 0.9), seatingStone)
       tier.rotation.x = -Math.PI / 2
       tier.position.set(0, 0.35 + r * 0.35, -4)
-      const riser = new THREE.Mesh(new THREE.CylinderGeometry(rad + 1.8, rad + 1.8, 0.38, 48, 1, true, Math.PI * 0.05, Math.PI * 0.9), M.stone)
+      const riser = new THREE.Mesh(new THREE.CylinderGeometry(rad + 1.8, rad + 1.8, 0.38, 48, 1, true, Math.PI * 0.05, Math.PI * 0.9), seatingRiser)
       riser.position.set(0, 0.16 + r * 0.35, -4)
       g.add(tier, riser)
       const lip = new THREE.Mesh(
         new THREE.TorusGeometry(rad, 0.012, 4, 48, Math.PI * 0.9),
-        new THREE.MeshBasicMaterial({ color: '#b89cff', transparent: true, opacity: 0.32, depthWrite: false, toneMapped: false }),
+        forumGold,
       )
       lip.rotation.set(-Math.PI / 2, 0, Math.PI * 0.05)
       lip.position.set(0, 0.38 + r * 0.35, -4)
@@ -66,7 +76,7 @@ export function buildExtras(root: THREE.Group, nav: Nav, c: Content, wings: Wing
     df.rotation.x = -Math.PI / 2
     df.position.set(0, 0.02, 1)
     g.add(df)
-    const danceInlay = new THREE.Mesh(new THREE.TorusGeometry(6.3, 0.025, 5, 72), P.gold)
+    const danceInlay = new THREE.Mesh(new THREE.TorusGeometry(6.3, 0.025, 5, 72), forumGold)
     danceInlay.rotation.x = Math.PI / 2
     danceInlay.position.set(0, 0.045, 1)
     g.add(danceInlay)
@@ -77,7 +87,7 @@ export function buildExtras(root: THREE.Group, nav: Nav, c: Content, wings: Wing
     const stageTop = new THREE.Mesh(new THREE.CircleGeometry(5.8, 64), forumMarble)
     stageTop.rotation.x = -Math.PI / 2
     stageTop.position.set(0, 1.01, 9.5)
-    const stageInlay = new THREE.Mesh(new THREE.TorusGeometry(5.15, 0.035, 5, 72), P.gold)
+    const stageInlay = new THREE.Mesh(new THREE.TorusGeometry(5.15, 0.035, 5, 72), forumGold)
     stageInlay.rotation.x = Math.PI / 2
     stageInlay.position.set(0, 1.04, 9.5)
     g.add(stage, stageTop, stageInlay)
@@ -110,7 +120,7 @@ export function buildExtras(root: THREE.Group, nav: Nav, c: Content, wings: Wing
     const spot = new THREE.PointLight('#ff6fe0', 30, 30, 1.5)
     spot.position.set(0, 6, 6)
     g.add(spot)
-    ticks.push((t) => (spot.color.setHSL((t * 0.05) % 1, 0.8, 0.6), (spot.intensity = 20 + Math.sin(t * 8) * 8)))
+    ticks.push((t) => (spot.color.setHSL((t * 0.05) % 1, 0.8, 0.6), (spot.intensity = 12 + Math.sin(t * 8) * 3)))
     const stagePos = ctr.clone().add(new THREE.Vector3(Math.sin(-ang) * 6, 0, Math.cos(-ang) * 6).multiplyScalar(-1))
     void stagePos
     const ip = new THREE.Vector3(0, 0, 4).applyAxisAngle(new THREE.Vector3(0, 1, 0), -ang).add(ctr)
