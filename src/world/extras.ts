@@ -40,7 +40,9 @@ export function buildExtras(root: THREE.Group, nav: Nav, c: Content, wings: Wing
     const base = new THREE.Mesh(new THREE.CylinderGeometry(19, 12, 6, 48), M.stone)
     base.position.y = -3.01
     g.add(base)
-    const floor = new THREE.Mesh(new THREE.CircleGeometry(18.5, 64), P.marbleBlack)
+    const forumMarble = P.marbleBlack.clone()
+    forumMarble.color.set('#352d46')
+    const floor = new THREE.Mesh(new THREE.CircleGeometry(18.5, 64), forumMarble)
     floor.rotation.x = -Math.PI / 2
     g.add(floor)
     // stepped seating arcs facing the stage (stage sits on the far side, local -z)
@@ -60,7 +62,7 @@ export function buildExtras(root: THREE.Group, nav: Nav, c: Content, wings: Wing
       lip.position.set(0, 0.38 + r * 0.35, -4)
       g.add(lip)
     }
-    const df = new THREE.Mesh(new THREE.CircleGeometry(6.5, 48), P.marbleBlack)
+    const df = new THREE.Mesh(new THREE.CircleGeometry(6.5, 48), forumMarble)
     df.rotation.x = -Math.PI / 2
     df.position.set(0, 0.02, 1)
     g.add(df)
@@ -72,7 +74,7 @@ export function buildExtras(root: THREE.Group, nav: Nav, c: Content, wings: Wing
     const stage = new THREE.Mesh(new THREE.CylinderGeometry(6, 6.4, 1, 48, 1, false, Math.PI / 2, Math.PI), M.obsidian)
     stage.position.set(0, 0.5, 9.5)
     stage.rotation.y = Math.PI
-    const stageTop = new THREE.Mesh(new THREE.CircleGeometry(5.8, 64), P.marbleBlack)
+    const stageTop = new THREE.Mesh(new THREE.CircleGeometry(5.8, 64), forumMarble)
     stageTop.rotation.x = -Math.PI / 2
     stageTop.position.set(0, 1.01, 9.5)
     const stageInlay = new THREE.Mesh(new THREE.TorusGeometry(5.15, 0.035, 5, 72), P.gold)
