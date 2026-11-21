@@ -303,9 +303,16 @@ engine.onTick((dt, t) => {
   // nearest interactable
   let best: (typeof world.interactables)[number] | null = null
   let bd = Infinity
+  const fx = Math.sin(controller.yaw)
+  const fz = -Math.cos(controller.yaw)
   for (const it of world.interactables) {
-    const d = Math.hypot(it.pos.x - controller.x, it.pos.z - controller.z)
-    if (d < it.r && d < bd && Math.abs(it.pos.y - controller.y) < 2) ((best = it), (bd = d))
+    const dx = it.pos.x - controller.x
+    const dz = it.pos.z - controller.z
+    const d = Math.hypot(dx, dz)
+    if (d >= it.r || Math.abs(it.pos.y - controller.y) >= 2) continue
+    const facing = d > 0.01 ? (dx * fx + dz * fz) / d : 1
+    const score = d + 1.5 * (1 - facing)
+    if (score < bd) ((best = it), (bd = score))
   }
   nearest = best
   hud.setPrompt(best?.label ?? null)
