@@ -30,7 +30,7 @@ export interface Wing {
   open: boolean
   group: THREE.Group
   world(lx: number, lz: number, y?: number): THREE.Vector3
-  rect(lcx: number, lcz: number, hw: number, hl: number, y0?: number, y1?: number): void
+  rect(lcx: number, lcz: number, hw: number, hl: number, y0?: number, y1?: number, first?: boolean): void
   obstacle(lx: number, lz: number, r: number): void
   circle(lcx: number, lcz: number, r: number): void
 }
@@ -120,8 +120,8 @@ export function makeWing(root: THREE.Group, nav: Nav, def: (typeof WING_DEFS)[nu
     open,
     group,
     world: (lx, lz, y = floorY) => new THREE.Vector3(lx * c + lz * s, y, -lx * s + lz * c),
-    rect: (lcx, lcz, hw, hl, y0 = floorY, y1 = y0) => {
-      nav.rect(def.room, lcx * c + lcz * s, -lcx * s + lcz * c, ang, hw, hl, y0, y1)
+    rect: (lcx, lcz, hw, hl, y0 = floorY, y1 = y0, first = false) => {
+      nav.rect(def.room, lcx * c + lcz * s, -lcx * s + lcz * c, ang, hw, hl, y0, y1, undefined, first)
     },
     obstacle: (lx, lz, r) => nav.obstacle(lx * c + lz * s, -lx * s + lz * c, r),
     circle: (lcx, lcz, r) => nav.circle(def.room, lcx * c + lcz * s, -lcx * s + lcz * c, r, floorY),

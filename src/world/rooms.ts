@@ -320,7 +320,7 @@ const builders: Partial<Record<RoomId, Builder>> = {
       const lz = z0 - 4.5 - r * 2.1
       const rise = (rows - 1 - r) * 0.32
       const tier = new THREE.Mesh(new THREE.BoxGeometry(w.W - 2, 0.32, 2.1), M.obsidian)
-      if (rise > 0) local(w, tier, 0, lz, rise - 0.16)
+      if (rise > 0) (local(w, tier, 0, lz, rise - 0.16), w.rect(0, lz, (w.W - 2) / 2, 1.05, w.floorY + rise, w.floorY + rise, true))
       const step = new THREE.Mesh(new THREE.BoxGeometry(w.W - 2, 0.025, 0.03), M.neonSoft)
       local(w, step, 0, lz + 1.05, rise + 0.01)
       for (let k = 0; k < per; k++) {

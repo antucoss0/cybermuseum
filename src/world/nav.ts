@@ -24,8 +24,8 @@ export class Nav {
   regions: Region[] = []
   obstacles: Obstacle[] = []
 
-  rect(room: RoomId, cx: number, cz: number, ang: number, hw: number, hl: number, y0 = 0, y1 = y0, name?: string) {
-    this.regions.push({ kind: 'rect', cx, cz, ang, hw, hl, r: 0, y0, y1, room, name })
+  rect(room: RoomId, cx: number, cz: number, ang: number, hw: number, hl: number, y0 = 0, y1 = y0, name?: string, first = false) {
+    this.regions[first ? 'unshift' : 'push']({ kind: 'rect', cx, cz, ang, hw, hl, r: 0, y0, y1, room, name })
   }
   circle(room: RoomId, cx: number, cz: number, r: number, y = 0, name?: string) {
     this.regions.push({ kind: 'circle', cx, cz, ang: 0, hw: 0, hl: 0, r, y0: y, y1: y, room, name })
