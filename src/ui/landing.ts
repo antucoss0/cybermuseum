@@ -185,7 +185,7 @@ export function selectCharacter(ui: HTMLElement): Promise<{ kind: AvatarKind; na
     let kind: AvatarKind = saved.kind ?? 'oraculo'
     const el = h('div', { id: 'select' })
     el.innerHTML = `<div class="head"><span class="kicker">${L('Antes de entrar', 'Before entering')}</span><h2 class="serif">${L('Elige tu forma', 'Choose your form')}</h2></div>
-      <div class="chars">${AVATARS.map((a) => `<button class="glass" data-k="${a.id}"><span class="star" style="color:${a.color}">✦</span><b class="serif">${a.name}</b><small>${a.role}</small><p>${a.desc}</p></button>`).join('')}</div>
+      <div class="chars">${AVATARS.map((a) => `<button class="glass" data-k="${a.id}"><span class="star" style="color:${a.color}">✦</span><b class="serif">${a.name}</b></button>`).join('')}</div>
       <div class="row"><input maxlength="16" placeholder="${L('Tu nombre de visitante', 'Your visitor name')}" value="${esc(saved.name ?? '')}"><button class="btn primary" data-go>${L('Entrar', 'Enter')} ✦</button></div>`
     ui.append(el)
     history.replaceState(null, '', location.pathname + location.search + '#/personajes')
