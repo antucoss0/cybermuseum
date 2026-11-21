@@ -38,7 +38,6 @@ export function buildWorld(c: Content, hooks: Hooks & SpaceHooks & ExtraHooks): 
     const open = def.room === 'futuro' ? c.settings.futureOpen : info.open
     const w = makeWing(group, nav, def, open)
     wings.push(w)
-    if (open) runtimes.push(buildRoom(w, c, add, hooks))
   }
   const lobby = buildLobby(group, nav, c)
   const exteriorGroup = new THREE.Group()
@@ -47,6 +46,7 @@ export function buildWorld(c: Content, hooks: Hooks & SpaceHooks & ExtraHooks): 
   const exterior = buildExterior(exteriorGroup, wings)
   const spaces = buildSpaces(group, nav, c, wings, add, hooks)
   const extras = buildExtras(group, nav, c, wings, add, hooks)
+  for (const w of wings) if (w.open) runtimes.push(buildRoom(w, c, add, hooks))
   for (const [x, title, body, col, act] of [
     [7, L('Convocatorias', 'Open calls'), L('Lee los términos y postúlate', 'Read the terms and apply'), '#ff9be9', () => hooks.openCalls()],
     [-7, tx(c.about, 'title'), L('Ethercoded · la historia del museo', 'Ethercoded · the museum story'), '#8fb4ff', () => hooks.openAbout()],

@@ -226,7 +226,7 @@ engine.onTick((dt, t) => {
   sky.uniforms.uEnergy.value = Math.min(1, energy)
   shared.lavender.value.copy(baseLav).lerp(hot, Math.min(1, energy * 0.8))
   cloudLight.color.copy(shared.lavender.value)
-  cloudLight.intensity = 110 + Math.min(1, energy) * 180
+  cloudLight.intensity = 66 + Math.min(1, energy) * 180
   engine.bloom.strength = (quality === 'low' ? 0.6 : 0.75) + Math.min(1, energy) * 0.3
   cloud.update(dt)
   cloud.points.rotation.y = t * 0.03

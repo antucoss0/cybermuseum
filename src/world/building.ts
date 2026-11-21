@@ -85,7 +85,7 @@ export function galaxyWindowMat() {
         neb *= 0.75 + 0.25*sin(uTime*0.4 + seed.x*10.0) + uEnergy*0.8;
         vec3 col = neb + stars(vUv + seed, 40.0, 1.0) + stars(vUv*1.3 + seed*2.0, 90.0, 1.7)*0.7;
         float core = exp(-dot(c,c)*30.0) * (0.25 + 0.15*sin(uTime*0.7));
-        col += vec3(0.8,0.7,1.0)*core;
+        col += vec3(0.8,0.7,1.0)*core*0.6;
         gl_FragColor = vec4(col, 1.0);
       }`,
   })
@@ -196,6 +196,26 @@ export function buildLobby(parent: THREE.Group, nav: Nav, content: Content) {
   const floor = new THREE.Mesh(new THREE.CircleGeometry(apo + 1.2, 64), floorMaterial(2.2))
   floor.rotation.x = -Math.PI / 2
   root.add(floor)
+  const floorGlow = (radius: number, color: string, strength: number) => {
+    const glow = new THREE.Mesh(
+      new THREE.CircleGeometry(radius, 48),
+      new THREE.ShaderMaterial({
+        uniforms: { uColor: { value: new THREE.Color(color) }, uStrength: { value: strength } },
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        toneMapped: false,
+        vertexShader: `varying vec2 vUv; void main(){ vUv=uv*2.0-1.0; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+        fragmentShader: `varying vec2 vUv; uniform vec3 uColor; uniform float uStrength;
+          void main(){ float a=pow(max(0.0,1.0-dot(vUv,vUv)),2.2)*uStrength; gl_FragColor=vec4(uColor*a,a); }`,
+      }),
+    )
+    glow.rotation.x = -Math.PI / 2
+    glow.position.y = 0.025
+    root.add(glow)
+    return glow
+  }
+  floorGlow(10, '#9e8bff', 0.035)
   nav.circle('lobby', 0, 0, apo - 0.2)
   const doorGeo = wall(side + 0.02, LOBBY_H, 1, [
     { x: 0, y: 0, w: 5, h: 7.5 },
@@ -386,6 +406,8 @@ export function buildLobby(parent: THREE.Group, nav: Nav, content: Content) {
     const ch = chandelier(i % 2 ? 1.8 : 2.4, i % 2 ? 14 : 20)
     ch.position.set(Math.cos(a) * 17, i % 2 ? 13.5 : 12.5, Math.sin(a) * 17)
     root.add(ch)
+    const pool = floorGlow(4.5, '#b89cff', 0.045)
+    pool.position.set(ch.position.x, 0.026, ch.position.z)
     chandeliers.push(ch)
   }
   const title = label('Cyber Museum', 'art · technology · eternity', 9)

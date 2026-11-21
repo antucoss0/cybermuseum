@@ -51,7 +51,7 @@ export function archOutline(w: number, h: number, thick = 0.08, round = false) {
   else archPath(p, w, h, 0, 0, false)
   const pts = p.getPoints(24).map((v) => new THREE.Vector3(v.x, v.y, 0))
   const curve = new THREE.CatmullRomCurve3(pts, round)
-  return new THREE.Mesh(new THREE.TubeGeometry(curve, 64, thick, 5, round), M.neon)
+  return new THREE.Mesh(new THREE.TubeGeometry(curve, 64, Math.min(thick, 0.03), 5, round), M.neon)
 }
 
 function outline(w: number, h: number, thick: number, material: THREE.Material, round = false) {
@@ -366,6 +366,7 @@ export interface NaveDefinition {
   entrance?: boolean
   apse?: boolean
   background?: THREE.Material
+  floorAlbedo?: number
 }
 
 export interface Nave {
@@ -505,7 +506,7 @@ export function arcade(width: number, height: number, length: number, bay: numbe
 export function nave(definition: NaveDefinition): Nave {
   const group = new THREE.Group()
   const { W, H, L, bay } = definition
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, L), floorMaterial(2))
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, L), floorMaterial(2, undefined, definition.floorAlbedo))
   floor.rotation.x = -Math.PI / 2
   floor.position.set(0, 0.01, -L / 2)
   const sides = arcade(W, H, L, bay, { background: definition.background })

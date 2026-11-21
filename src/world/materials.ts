@@ -15,7 +15,7 @@ export const M = {
   marble: P.marbleFloor,
   neon: new THREE.MeshBasicMaterial({ color: new THREE.Color('#b89cff').multiplyScalar(1.15), toneMapped: false }),
   neonSoft: new THREE.MeshBasicMaterial({ color: new THREE.Color('#9b7bff').multiplyScalar(1.1), toneMapped: false }),
-  neonWhite: new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffffff').multiplyScalar(1.1), toneMapped: false }),
+  neonWhite: new THREE.MeshBasicMaterial({ color: new THREE.Color('#c9b3ff').multiplyScalar(1.1), toneMapped: false }),
   glass: new THREE.MeshBasicMaterial({ color: '#8a7cff', transparent: true, opacity: 0.07, depthWrite: false, side: THREE.DoubleSide }),
   black: new THREE.MeshBasicMaterial({ color: '#000000' }),
   gold: P.gold,
@@ -23,7 +23,7 @@ export const M = {
 }
 
 /** Checkerboard marble floor with animated lavender light waves driven by payments. */
-export function floorMaterial(tile = 2, glowFrom = new THREE.Vector2(0, 0)) {
+export function floorMaterial(tile = 2, glowFrom = new THREE.Vector2(0, 0), albedo = 1) {
   const marbleTexture = getPbrTexture('grey_cartago_01')
   const darkMarbleTexture = getPbrTexture('marble_rock_03')
   return new THREE.ShaderMaterial({
@@ -32,6 +32,7 @@ export function floorMaterial(tile = 2, glowFrom = new THREE.Vector2(0, 0)) {
       uEnergy: shared.energy,
       uRipples: shared.ripples,
       uTile: { value: tile },
+      uAlbedo: { value: albedo },
       uCenter: { value: glowFrom },
       uLav: shared.lavender,
       uMarble: { value: marbleTexture },
@@ -42,7 +43,7 @@ export function floorMaterial(tile = 2, glowFrom = new THREE.Vector2(0, 0)) {
       void main(){ vec4 w = modelMatrix * vec4(position,1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
     fragmentShader: /* glsl */ `
       varying vec3 vW;
-      uniform float uTime; uniform float uEnergy; uniform float uTile; uniform vec2 uCenter; uniform vec3 uLav;
+      uniform float uTime; uniform float uEnergy; uniform float uTile; uniform float uAlbedo; uniform vec2 uCenter; uniform vec3 uLav;
       uniform sampler2D uMarble; uniform sampler2D uMarbleDark;
       uniform vec4 uRipples[4];
       float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
@@ -65,7 +66,7 @@ export function floorMaterial(tile = 2, glowFrom = new THREE.Vector2(0, 0)) {
         darkMarble = vec3(darkLuma) * vec3(0.78, 0.78, 0.93);
         vec3 white = whiteMarble * vec3(0.34,0.34,0.43);
         vec3 black = darkMarble * vec3(0.13,0.13,0.18);
-        vec3 col = mix(black, white, chk);
+        vec3 col = mix(black, white, chk) * uAlbedo;
         float edge = min(min(f.x,1.0-f.x), min(f.y,1.0-f.y));
         float joint = 1.0 - smoothstep(0.0015, 0.0045, edge);
         col = mix(col, vec3(0.015,0.014,0.011), joint * 0.96);

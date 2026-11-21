@@ -261,18 +261,24 @@ export function buildSpaces(root: THREE.Group, nav: Nav, c: Content, wings: Wing
     root.add(g)
     hallGroups.set(hall.id, g)
     nav.rect('salas', cx, cz, 0, W / 2, Lh / 2, 0, 0, hall.id)
-    const built = buildNave({ W, H, L: Lh, bay: 5.5 })
+    const built = buildNave({ W, H, L: Lh, bay: 5.5, floorAlbedo: 1.03 })
     g.add(built.group)
-    const lamp = new THREE.PointLight(hall.color, 9, 0, 1.7)
-    lamp.position.set(0, H - 1.1, -Lh / 3)
-    g.add(lamp)
+    g.add(new THREE.HemisphereLight('#f6d9b7', '#21152d', 0.6))
+    for (const [y, z] of [[H - 1.2, -Lh / 3], [4.8, -Lh * 0.72]]) {
+      const lamp = new THREE.PointLight(hall.color, 16, 22, 1.6)
+      lamp.position.set(0, y, z)
+      g.add(lamp)
+    }
+    const frameGold = M.gold.clone()
+    frameGold.emissive.set('#8a681f')
+    frameGold.emissiveIntensity = 0.32
     const frame = new THREE.Mesh(new THREE.BoxGeometry(6.3, 3.1, 0.18), M.obsidian)
     frame.position.set(0, 4.25, -Lh + 0.55)
-    const frameTop = new THREE.Mesh(new THREE.BoxGeometry(6.42, 0.06, 0.06), M.gold)
+    const frameTop = new THREE.Mesh(new THREE.BoxGeometry(6.42, 0.06, 0.06), frameGold)
     frameTop.position.set(0, 5.82, -Lh + 0.68)
     const frameBottom = frameTop.clone()
     frameBottom.position.y = 2.68
-    const frameLeft = new THREE.Mesh(new THREE.BoxGeometry(0.06, 3.2, 0.06), M.gold)
+    const frameLeft = new THREE.Mesh(new THREE.BoxGeometry(0.06, 3.2, 0.06), frameGold)
     frameLeft.position.set(-3.18, 4.25, -Lh + 0.68)
     const frameRight = frameLeft.clone()
     frameRight.position.x = 3.18
@@ -322,16 +328,26 @@ export function buildSpaces(root: THREE.Group, nav: Nav, c: Content, wings: Wing
       obj.rotation.y = onWall ? -side * Math.PI / 2 : 0
       g.add(obj)
       if (!onWall) nav.obstacle(cx + lx, cz + Lh / 2 + lz, 1)
+      const pool = new THREE.Mesh(
+        new THREE.CircleGeometry(2.2, 40),
+        new THREE.ShaderMaterial({
+          uniforms: { uColor: { value: new THREE.Color(hall.color) } },
+          transparent: true,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+          toneMapped: false,
+          vertexShader: `varying vec2 vUv; void main(){ vUv=uv*2.0-1.0; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+          fragmentShader: `varying vec2 vUv; uniform vec3 uColor; void main(){ float a=pow(max(0.0,1.0-dot(vUv,vUv)),2.4)*0.12; gl_FragColor=vec4(uColor*a,a); }`,
+        }),
+      )
+      pool.rotation.x = -Math.PI / 2
+      pool.position.set(lx, 0.035, lz)
+      g.add(pool)
       const plaque = textPanel(tx(p, 'title'), `${p.author}${p.year ? ' · ' + p.year : ''}`, 1.5, 0.5, hall.color)
       if (onWall) plaque.position.set(0, 0.7, 0.08)
       else plaque.position.set(0, 1.25, 1.0)
       obj.add(plaque)
-      if (onWall) {
-        const spot = new THREE.SpotLight(hall.kind === '2d' ? '#ffdca3' : hall.color, 18, 8, Math.PI / 5, 0.7, 1.5)
-        spot.position.set(side * (W / 2 - 0.55), 4.35, lz + 0.9)
-        spot.target.position.set(lx, 2.2, lz)
-        g.add(spot, spot.target)
-      } else if (hall.kind === '3d') {
+      if (!onWall && hall.kind === '3d') {
         const shaft = new THREE.Mesh(
           new THREE.ConeGeometry(1.6, 7, 16, 1, true),
           new THREE.MeshBasicMaterial({ color: '#c5d9ff', transparent: true, opacity: 0.045, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
