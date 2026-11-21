@@ -696,7 +696,7 @@ const builders: Partial<Record<RoomId, Builder>> = {
     const ground = new THREE.Mesh(new THREE.CircleGeometry(R + 4, 64), pbr('forrest_ground_01', { repeat: [5, 5], color: '#9aa99b', roughness: 0.94 }))
     ground.rotation.x = -Math.PI / 2
     local(w, ground, 0, cz, 0.005)
-    const veinMat = new THREE.MeshBasicMaterial({ color: '#65a68d', transparent: true, opacity: 0.16, toneMapped: false })
+    const veinMat = new THREE.MeshBasicMaterial({ color: '#65a68d', transparent: true, opacity: 0.1, toneMapped: false })
     const veinRng = mulberry32(125)
     for (let i = 0; i < 10; i++) {
       const a = (i / 10) * Math.PI * 2
@@ -722,16 +722,47 @@ const builders: Partial<Record<RoomId, Builder>> = {
     w.obstacle(0, cz, 4.7)
     add({ id: 'garden', pos: w.world(0, cz + 6), r: 2.4, label: L('Plantar una flor (apoyar al jardín)', 'Plant a flower (support the garden)'), room: w.room, action: () => hooks.donate() })
     const rng = mulberry32(99)
-    const trunkMat = new THREE.MeshStandardMaterial({ color: '#2b2130', metalness: 0.05, roughness: 0.95 })
+    const gardenPaths = [
+      new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0, 0, z0 - 2),
+        new THREE.Vector3(-2.5, 0, z0 - 7),
+        new THREE.Vector3(-8, 0, cz + 9),
+        new THREE.Vector3(-10, 0, cz + 3),
+        new THREE.Vector3(-7, 0, cz - 5),
+      ]),
+      new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0, 0, z0 - 2),
+        new THREE.Vector3(2.5, 0, z0 - 7),
+        new THREE.Vector3(8, 0, cz + 9),
+        new THREE.Vector3(10, 0, cz + 3),
+        new THREE.Vector3(7, 0, cz - 5),
+      ]),
+    ]
+    const flags = new THREE.InstancedMesh(new THREE.BoxGeometry(0.92, 0.12, 0.64), P.stoneCarved, 112)
+    const flag = new THREE.Object3D()
+    let flagIndex = 0
+    for (const path of gardenPaths) {
+      for (let i = 0; i < 56; i++) {
+        const t = (i + 0.5) / 56
+        const point = path.getPointAt(t)
+        const tangent = path.getTangentAt(t)
+        flag.position.set(point.x + (rng() - 0.5) * 0.12, w.floorY + 0.07, point.z + (rng() - 0.5) * 0.12)
+        flag.rotation.set(0, Math.atan2(-tangent.z, tangent.x) + (rng() - 0.5) * 0.12, 0)
+        flag.scale.set(0.78 + rng() * 0.35, 0.8 + rng() * 0.3, 0.78 + rng() * 0.35)
+        flag.updateMatrix()
+        flags.setMatrixAt(flagIndex++, flag.matrix)
+      }
+    }
+    flags.instanceMatrix.needsUpdate = true
+    w.group.add(flags)
+    const hedgeMat = new THREE.MeshStandardMaterial({ color: '#18261c', roughness: 0.95 })
     for (let i = 0; i < 28; i++) {
       const a = (i / 28) * Math.PI * 2
       const lx = Math.cos(a) * (R + 0.5)
       const lz = cz + Math.sin(a) * (R + 0.5)
       if (lz > cz + R - 2 && Math.abs(lx) < 6) continue
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.1, 5), M.obsidian)
-      local(w, post, lx, lz, 0.55)
-      const tip = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 6), M.neon)
-      local(w, tip, lx, lz, 1.15)
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.7, 5), hedgeMat)
+      local(w, post, lx, lz, 0.35)
     }
     const portal = archOutline(6, 9, 0.12)
     local(w, portal, 0, z0 - 1.05, 0, Math.PI)
@@ -753,18 +784,39 @@ const builders: Partial<Record<RoomId, Builder>> = {
         prototypes.forEach((prototype, variant) => {
           prototype.updateMatrixWorld(true)
           const placements: THREE.Matrix4[] = []
-          for (let i = 0; i < 4; i++) {
-            const a = ((variant * 4 + i) / 20) * Math.PI * 2 + 0.3
-            const r = R - 4 - (i % 2) * 2
-            const lx = Math.cos(a) * r
-            const lz = cz + Math.sin(a) * r
+          const count = variant === 2 ? 8 : 36
+          for (let i = 0; i < count; i++) {
+            const cluster = i % 10
+            const a = (cluster / 10) * Math.PI * 2 + (rng() - 0.5) * 0.5
+            const r = 7 + rng() * 13
+            let lx = Math.cos(a) * r
+            let lz = cz + Math.sin(a) * r
+            let scale = 0.58 + rng() * 0.68
+            if (variant === 1 && i < 8) {
+              lx = (i % 2 ? 1 : -1) * 4.1
+              lz = z0 - 5 - Math.floor(i / 2) * 1.45
+              scale = 0.42 + rng() * 0.12
+            } else if (variant === 1 && i < 12) {
+              const treeAngle = ((i - 8) / 4) * Math.PI * 2 + 0.4
+              lx = Math.cos(treeAngle) * 17
+              lz = cz + Math.sin(treeAngle) * 17
+              scale = 1.7 + rng() * 0.35
+            } else if (variant === 3) {
+              const path = gardenPaths[i % gardenPaths.length]
+              const point = path.getPointAt((i + 0.5) / count)
+              const tangent = path.getTangentAt((i + 0.5) / count)
+              const offset = (i % 2 ? 1 : -1) * (1.1 + rng() * 1.4)
+              lx = point.x + tangent.z * offset
+              lz = point.z - tangent.x * offset
+              scale = 0.42 + rng() * 0.38
+            }
             const placement = new THREE.Object3D()
             placement.position.set(lx, w.floorY, lz)
             placement.rotation.y = a + rng()
-            placement.scale.setScalar(0.82 + rng() * 0.34)
+            placement.scale.setScalar(scale)
             placement.updateMatrix()
             placements.push(placement.matrix.clone())
-            w.obstacle(lx, lz, 0.8)
+            w.obstacle(lx, lz, variant === 2 ? 0.35 : 0.5)
           }
           prototype.traverse((object) => {
             const mesh = object as THREE.Mesh
@@ -778,7 +830,7 @@ const builders: Partial<Record<RoomId, Builder>> = {
         for (let i = 0; i < 6; i++) {
           const a = (i / 6) * Math.PI * 2 + 0.5
           const holder = new THREE.Group()
-          holder.add(prototypes[i % prototypes.length].clone())
+          holder.add(prototypes[[0, 1, 3, 4, 0, 1][i]].clone())
           local(w, holder, Math.cos(a) * 6.2, cz + Math.sin(a) * 6.2)
           holder.userData.phase = i
           heroes.push(holder)
