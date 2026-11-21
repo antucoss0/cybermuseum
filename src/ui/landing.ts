@@ -32,7 +32,7 @@ export function intro(ui: HTMLElement) {
 const rooms = () => {
   const c = content.data
   const list = ['videosala', 'escultura', 'pintura', 'tienda', 'jardin', 'temporales', 'videojuegos'] as const
-  return list.map((id) => `<div class="glass"><b>${esc(tx(c.rooms[id], 'name'))}</b><span>${esc(tx(c.rooms[id], 'subtitle'))}</span></div>`).join('')
+  return list.map((id) => `<span class="chip">${esc(tx(c.rooms[id], 'name'))}</span>`).join('')
 }
 
 export function landing(ui: HTMLElement, onScroll: (p: number) => void, onEnter: () => void) {
@@ -45,44 +45,42 @@ export function landing(ui: HTMLElement, onScroll: (p: number) => void, onEnter:
   </div>
   <section class="panel hero"><div class="card glass">
     <span class="kicker">${L('Un museo infinito', 'An infinite museum')}</span>
-    <h1 class="serif">${L('Arte, tecnología<br><em>y eternidad.</em>', 'Art, technology<br><em>and eternity.</em>')}</h1>
-    <p>${L('Cyber Museum es un edificio 3D persistente que puedes habitar desde cualquier navegador: una catedral neogótica futurista suspendida entre galaxias, donde el arte, la arquitectura y las personas que lo visitan comparten el mismo espacio.', 'Cyber Museum is a persistent 3D building you can inhabit from any browser: a futurist neo-gothic cathedral suspended among galaxies, where art, architecture and the people who visit share the same space.')}</p>
+    <h1 class="serif">${L('Arte digital que perdura', 'Art that outlives time')}</h1>
+    <p>${L('Un museo gótico vivo entre galaxias, donde personas y arte comparten un mundo.', 'A living gothic museum among galaxies, where people and art share one world.')}</p>
     <div class="row"><button class="btn primary" data-enter>${L('Entrar', 'Enter')} ✦</button><button class="btn ghost" data-next>${L('Descubrir', 'Discover')}</button></div>
   </div></section>
   <section class="panel right"><div class="card glass">
     <span class="kicker">01 · ${L('Concepto', 'Concept')}</span>
-    <h2 class="serif">${L('Una catedral para lo digital', 'A cathedral for the digital')}</h2>
-    <p>${L('Bóvedas de obsidiana, candelabros lavanda, tiras de neón y un piso de ajedrez infinito. Ventanales que dan al universo. Una estética <em>greco-futurista y oriental</em> donde ser pequeño y efímero frente al cosmos es también ser uno con él.', 'Obsidian vaults, lavender chandeliers, neon strips and an endless chessboard floor. Windows that open onto the universe. A <em>Greco-futurist and oriental</em> aesthetic where being small and ephemeral before the cosmos is also being one with it.')}</p>
+    <h2 class="serif">${L('Una catedral para el arte digital', 'A Cathedral for Digital Art')}</h2>
+    <p>${L('Bóvedas de obsidiana, luz lavanda y mármol enmarcan un universo de arte vivo.', 'Obsidian vaults, lavender lights, and marble frame a universe of living art.')}</p>
     <div class="palette"><i style="background:#07060c"></i><i style="background:#1a1233"></i><i style="background:#8b5cf6"></i><i style="background:#b89cff"></i><i style="background:#ece8ff"></i></div>
   </div></section>
   <section class="panel"><div class="card glass">
     <span class="kicker">02 · ${L('Problema y solución', 'Problem & solution')}</span>
-    <h2 class="serif">${L('Los museos digitales son páginas. Este es un lugar.', 'Digital museums are pages. This is a place.')}</h2>
-    <p>${L('En vez de galerías sueltas, caminas en tercera persona por un solo edificio continuo: cruzas arcos, subes escaleras, descubres accesos físicos y entras a cada exposición sin cortes. Otros visitantes caminan contigo en tiempo real.', 'Instead of loose galleries, you walk in third person through a single continuous building: you pass through arches, climb stairs, find physical entrances and step into every exhibition without cuts. Other visitors walk with you in real time.')}</p>
-    <ul>${L('<li>Avatar 3D en tercera persona · 3 personajes</li><li>Multijugador sin servidor (P2P)</li><li>Optimizado para móvil con joystick táctil</li>', '<li>Third-person 3D avatar · 3 characters</li><li>Serverless multiplayer (P2P)</li><li>Mobile-ready with a touch joystick</li>')}</ul>
+    <h2 class="serif">${L('Un edificio, muchos mundos', 'One Building, Many Worlds')}</h2>
+    <p>${L('Recorre galerías conectadas sin pantallas de carga.', 'Walk from gallery to gallery without a loading screen.')}</p>
   </div></section>
   <section class="panel center"><div class="card glass wide">
     <span class="kicker">03 · ${L('El edificio', 'The building')}</span>
-    <h2 class="serif">${L('Ocho alas alrededor de una cúpula', 'Eight wings around a dome')}</h2>
-    <p>${L('En el centro del lobby flota la <em>Nube Gaussiana</em>. Desde ahí, cada arco te lleva a una sala.', 'The <em>Gaussian Cloud</em> floats at the center of the lobby. From there, every arch leads to a hall.')}</p>
+    <h2 class="serif">${L('Ocho alas bajo las estrellas', 'Eight Wings Beneath the Stars')}</h2>
+    <p>${L('Una nube viva marca el centro; cada arco revela una nueva sala.', 'A living cloud anchors the center; every arch reveals another hall.')}</p>
     <div class="grid-rooms">${rooms()}</div>
   </div></section>
   <section class="panel right"><div class="card glass">
     <span class="kicker">04 · ${L('Arte vivo', 'Living art')}</span>
-    <h2 class="serif">${L('Cada pago enciende el museo', 'Every payment lights up the museum')}</h2>
-    <p>${L('Una donación, una compra en la tienda o una flor para el jardín se convierten en luz: la nube entra en sobrecarga y fluye como líquido, la iluminación cambia de tono, el piso emite ondas y en el jardín exterior crece una planta nueva. Todos los visitantes lo ven al mismo tiempo.', 'A donation, a shop purchase or a flower for the garden turns into light: the cloud overloads and flows like liquid, the lighting changes hue, the floor sends out waves and a new plant grows in the outdoor garden. Every visitor sees it at the same time.')}</p>
-    <p class="muted">${L('Pagos con Stripe · modo demo sin credenciales', 'Stripe payments · demo mode without credentials')}</p>
+    <h2 class="serif">${L('Arte que responde', 'Art That Responds')}</h2>
+    <p>${L('Cada apoyo enciende la nube, ondula el mármol y hace florecer el jardín.', 'Every gift lights the cloud, ripples the marble, and grows a garden bloom.')}</p>
   </div></section>
   <section class="panel"><div class="card glass">
-    <span class="kicker">05 · ${L('Para artistas y curadores', 'For artists and curators')}</span>
-    <h2 class="serif">${L('Salas permanentes, temporales y convocatorias', 'Permanent halls, temporary shows and open calls')}</h2>
-    <p>${L('Un panel SuperAdmin permite subir imágenes, video y modelos 3D, curar exposiciones temporales, abrir convocatorias, publicar eventos y generar nuevos espacios de forma procedural a partir de una semilla.', 'A SuperAdmin panel lets you upload images, video and 3D models, curate temporary exhibitions, open calls, publish events and procedurally generate new spaces from a seed.')}</p>
+    <span class="kicker">05 · ${L('Curaduría abierta', 'Open Curatorial Calls')}</span>
+    <h2 class="serif">${L('Para artistas y curadores', 'For Artists and Curators')}</h2>
+    <p>${L('Publica exposiciones, eventos y convocatorias dentro del museo.', 'Publish shows, events, and open calls inside the museum.')}</p>
     <div class="tech"><span class="chip">Three.js</span><span class="chip">WebGL</span><span class="chip">WebRTC</span><span class="chip">${L('Generativo', 'Generative')}</span><span class="chip">Stripe</span><span class="chip">PWA-ready</span></div>
   </div></section>
   <section class="panel right"><div class="card glass">
     <span class="kicker">06 · ${L('Experiencia', 'Experience')}</span>
-    <h2 class="serif">${L('Se escucha, se recorre, se habita', 'You hear it, walk it, inhabit it')}</h2>
-    <p>${L('Cada sala tiene su propia música generativa y su acústica; tus pasos suenan distinto en piedra, alfombra o pasto. Cruzar un arco se siente como atravesar un portal.', 'Every hall has its own generative score and acoustics; your footsteps sound different on stone, carpet or grass. Crossing an arch feels like stepping through a portal.')}</p>
+    <h2 class="serif">${L('Un mundo para habitar', 'A World to Inhabit')}</h2>
+    <p>${L('Sonido, movimiento y arquitectura hacen única cada sala.', 'Sound, movement, and architecture make every hall feel distinct.')}</p>
     <div class="stats">
       <div><b data-count="8">0</b><span>${L('salas', 'halls')}</span></div>
       <div><b data-count="56000">0</b><span>${L('partículas vivas', 'living particles')}</span></div>
@@ -94,15 +92,11 @@ export function landing(ui: HTMLElement, onScroll: (p: number) => void, onEnter:
   <section class="panel"><div class="card glass wide faq">
     <span class="kicker">07 · ${L('Preguntas', 'Questions')}</span>
     <h2 class="serif">${L('Antes de cruzar', 'Before you cross')}</h2>
-    <details><summary>${L('¿Necesito instalar algo?', 'Do I need to install anything?')}</summary><p>${L('No. Funciona en cualquier navegador moderno, en computadora, tablet o celular. Si tu visor soporta WebXR, aparecen los botones VR y AR.', 'No. It runs in any modern browser on desktop, tablet or phone. If your headset supports WebXR, VR and AR buttons appear.')}</p></details>
-    <details><summary>${L('¿Cómo me muevo?', 'How do I move?')}</summary><p>${L('WASD o flechas y el mouse en computadora; joystick y arrastre en pantallas táctiles; controles del visor en VR. El menú te teletransporta a cualquier sala.', 'WASD or arrows plus the mouse on desktop; joystick and drag on touch screens; controller sticks in VR. The menu teleports you to any hall.')}</p></details>
-    <details><summary>${L('¿Hay otras personas dentro?', 'Are other people inside?')}</summary><p>${L('Sí. Los visitantes se conectan entre sí en tiempo real, sin servidor central: se ven caminar y pueden chatear.', 'Yes. Visitors connect to each other in real time without a central server: you see them walk and can chat.')}</p></details>
-    <details><summary>${L('¿Cómo apoyo al museo?', 'How do I support the museum?')}</summary><p>${L('Con una donación o una compra en la tienda. Cada pago enciende la nube y hace florecer una planta en el jardín.', 'With a donation or a shop purchase. Every payment ignites the cloud and makes a plant bloom in the garden.')}</p></details>
-    <details><summary>${L('Soy artista, ¿cómo expongo?', 'I am an artist, how do I exhibit?')}</summary><p>${L('Las convocatorias abiertas viven en la sala de Exposiciones Temporales: envías tu propuesta desde ahí y el equipo curatorial la revisa.', 'Open calls live in the Temporary Exhibitions hall: submit your proposal there and the curatorial team reviews it.')}</p></details>
+    <p>${L('La visita comienza en el museo; cada sala ofrece algo nuevo por descubrir.', 'Your visit begins in the museum; every hall offers something new to discover.')}</p>
   </div></section>
   <section class="panel center"><div class="card glass">
     <span class="kicker">${L('Entrada libre', 'Free entry')}</span>
-    <h1 class="serif">${L('Cruza el umbral.', 'Cross the threshold.')}</h1>
+    <h1 class="serif">${L('Comienza tu visita', 'Begin Your Visit')}</h1>
     <p>${L('Elige un personaje y entra a la bóveda principal.', 'Choose a character and step into the main vault.')}</p>
     <button class="btn primary" data-enter>${L('Entrar al museo', 'Enter the museum')} ✦</button>
     <div class="foot"><span class="serif">Cyber Museum</span> · ${L('un proyecto de Ethercoded', 'an Ethercoded project')} · 2026</div>
