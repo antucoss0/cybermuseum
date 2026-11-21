@@ -72,9 +72,6 @@ export function shopDecor(w: Wing, c: Content) {
     sh.rotation.y = -a + Math.PI / 2
     spin.add(sh)
   }
-  const glow = new THREE.PointLight('#d8ccff', 2.2, 6, 1.8)
-  glow.position.y = 3.5
-  rack.add(glow)
   w.obstacle(0, z0 - w.L / 2, 1.8)
   return { tick: (t: number) => (spin.rotation.y = t * 0.25) }
 }

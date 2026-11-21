@@ -431,7 +431,7 @@ const builders: Partial<Record<RoomId, Builder>> = {
     }
   },
   tienda(w, c, add, hooks) {
-    roomLight(w, '#e2d4ff', 38)
+    roomLight(w, '#e2d4ff', 20)
     const decor = shopDecor(w, c)
     shopTicks.push(decor.tick)
     const list = c.products
@@ -471,7 +471,7 @@ const builders: Partial<Record<RoomId, Builder>> = {
       const img = new THREE.Mesh(new THREE.PlaneGeometry(1.02, 1.02), textureFor(p.gen, p.seed, p.media, 'image'))
       img.position.set(0, 1.48, 0.46)
       img.userData.spin = true
-      const downlight = new THREE.PointLight('#e4d8ff', 1.1, 2.8, 2)
+      const downlight = new THREE.PointLight('#e4d8ff', 0.4, 2.8, 2)
       downlight.position.set(0, 2.03, 0)
       const plaque = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.28, 0.025), M.obsidian)
       plaque.position.set(0, 0.88, 0.6)
