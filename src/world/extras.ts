@@ -46,37 +46,39 @@ export function buildExtras(root: THREE.Group, nav: Nav, c: Content, wings: Wing
     // stepped seating arcs facing the stage (stage sits on the far side, local -z)
     for (let r = 0; r < 5; r++) {
       const rad = 9 + r * 1.8
-      const tier = new THREE.Mesh(new THREE.RingGeometry(rad, rad + 1.8, 48, 1, Math.PI * 0.15, Math.PI * 0.7), P.stoneCarved)
+      const tier = new THREE.Mesh(new THREE.RingGeometry(rad, rad + 1.8, 48, 1, Math.PI * 0.05, Math.PI * 0.9), P.stoneCarved)
       tier.rotation.x = -Math.PI / 2
       tier.position.set(0, 0.35 + r * 0.35, -4)
-      const riser = new THREE.Mesh(new THREE.CylinderGeometry(rad + 1.8, rad + 1.8, 0.38, 48, 1, true, Math.PI * 0.15, Math.PI * 0.7), M.stone)
+      const riser = new THREE.Mesh(new THREE.CylinderGeometry(rad + 1.8, rad + 1.8, 0.38, 48, 1, true, Math.PI * 0.05, Math.PI * 0.9), M.stone)
       riser.position.set(0, 0.16 + r * 0.35, -4)
       g.add(tier, riser)
-      const lip = new THREE.Mesh(new THREE.TorusGeometry(rad, 0.03, 4, 48, Math.PI * 0.7), M.neonSoft)
-      lip.rotation.set(-Math.PI / 2, 0, Math.PI * 0.15)
+      const lip = new THREE.Mesh(
+        new THREE.TorusGeometry(rad, 0.012, 4, 48, Math.PI * 0.9),
+        new THREE.MeshBasicMaterial({ color: '#b89cff', transparent: true, opacity: 0.32, depthWrite: false, toneMapped: false }),
+      )
+      lip.rotation.set(-Math.PI / 2, 0, Math.PI * 0.05)
       lip.position.set(0, 0.38 + r * 0.35, -4)
       g.add(lip)
     }
-    // dancefloor
-    const dance = new THREE.ShaderMaterial({
-      uniforms: { uTime: { value: 0 } },
-      vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
-      fragmentShader: `varying vec2 vUv; uniform float uTime;
-        void main(){ vec2 q=floor(vUv*12.0); float h=fract(sin(dot(q,vec2(12.9898,78.233)))*43758.5453);
-          float on=step(0.55,fract(h+uTime*0.9)); vec2 f=fract(vUv*12.0); float edge=step(0.06,f.x)*step(0.06,f.y);
-          vec3 col=mix(vec3(0.03,0.02,0.07),0.5+0.5*cos(6.28*(h+uTime*0.15+vec3(0.0,0.33,0.67))),on*0.85)*edge;
-          float d=length(vUv-0.5); gl_FragColor=vec4(col*smoothstep(0.5,0.42,d),1.0); }`,
-    })
-    const df = new THREE.Mesh(new THREE.CircleGeometry(6.5, 48), dance)
+    const df = new THREE.Mesh(new THREE.CircleGeometry(6.5, 48), P.marbleBlack)
     df.rotation.x = -Math.PI / 2
     df.position.set(0, 0.02, 1)
     g.add(df)
-    ticks.push((t) => (dance.uniforms.uTime.value = t))
+    const danceInlay = new THREE.Mesh(new THREE.TorusGeometry(6.3, 0.025, 5, 72), P.gold)
+    danceInlay.rotation.x = Math.PI / 2
+    danceInlay.position.set(0, 0.045, 1)
+    g.add(danceInlay)
     // stage
     const stage = new THREE.Mesh(new THREE.CylinderGeometry(6, 6.4, 1, 48, 1, false, Math.PI / 2, Math.PI), M.obsidian)
     stage.position.set(0, 0.5, 9.5)
     stage.rotation.y = Math.PI
-    g.add(stage)
+    const stageTop = new THREE.Mesh(new THREE.CircleGeometry(5.8, 64), P.marbleBlack)
+    stageTop.rotation.x = -Math.PI / 2
+    stageTop.position.set(0, 1.01, 9.5)
+    const stageInlay = new THREE.Mesh(new THREE.TorusGeometry(5.15, 0.035, 5, 72), P.gold)
+    stageInlay.rotation.x = Math.PI / 2
+    stageInlay.position.set(0, 1.04, 9.5)
+    g.add(stage, stageTop, stageInlay)
     nav.obstacle(ctr.x + Math.sin(ang) * -9.5, ctr.z + Math.cos(ang) * -9.5, 5.5)
     for (const s of [-1, 1]) {
       const col = column(9, 0.35)
@@ -95,9 +97,10 @@ export function buildExtras(root: THREE.Group, nav: Nav, c: Content, wings: Wing
     screen.rotation.y = Math.PI
     g.add(screen)
     const lasers: THREE.Mesh[] = []
-    for (let i = 0; i < 6; i++) {
-      const b = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 30, 6), new THREE.MeshBasicMaterial({ color: ['#ff4fd8', '#7cf2e4', '#b89cff'][i % 3], toneMapped: false, transparent: true, opacity: 0.6 }))
-      b.position.set(-5 + i * 2, 1.5, 10)
+    const laserMat = new THREE.MeshBasicMaterial({ color: '#b89cff', toneMapped: false, transparent: true, opacity: 0.38 })
+    for (let i = 0; i < 3; i++) {
+      const b = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 30, 5), laserMat)
+      b.position.set(-3 + i * 3, 1.5, 10)
       g.add(b)
       lasers.push(b)
     }
@@ -131,7 +134,10 @@ export function buildExtras(root: THREE.Group, nav: Nav, c: Content, wings: Wing
   }
   const table = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.4, 0.12, 48), new THREE.MeshPhysicalMaterial({ color: '#1b1430', roughness: 0.1, metalness: 0.2, clearcoat: 1 }))
   table.position.y = 0.78
-  const tring = new THREE.Mesh(new THREE.TorusGeometry(2.4, 0.03, 6, 64), M.neon)
+  const tring = new THREE.Mesh(
+    new THREE.TorusGeometry(2.4, 0.01, 4, 64),
+    new THREE.MeshBasicMaterial({ color: '#c9a86a', transparent: true, opacity: 0.32, depthWrite: false, toneMapped: false }),
+  )
   tring.rotation.x = Math.PI / 2
   tring.position.y = 0.85
   j.add(table, tring)
