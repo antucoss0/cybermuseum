@@ -624,18 +624,22 @@ const builders: Partial<Record<RoomId, Builder>> = {
     const rng = mulberry32(c.settings.seed)
     const kind = c.settings.futureKind
     const spin: THREE.Object3D[] = []
+    let slitMat: THREE.ShaderMaterial | null = null
     roomLight(w, '#b8a2ff', 50)
     if (kind === 'mirador') {
       const centerZ = z0 - w.L / 2
       const radius = Math.min(w.W * 0.46, w.H * 0.62)
       const slitPhi = Math.PI / 2
-      const slitHalf = 0.42
+      const slitHalf = 0.58
       const domeMat = new THREE.MeshPhysicalMaterial({ color: '#211a32', metalness: 0.22, roughness: 0.48, side: THREE.DoubleSide })
       for (const geo of [
         new THREE.SphereGeometry(radius, 32, 16, 0, slitPhi - slitHalf, 0, Math.PI / 2),
         new THREE.SphereGeometry(radius, 32, 16, slitPhi + slitHalf, Math.PI * 2 - slitPhi - slitHalf, 0, Math.PI / 2),
       ]) local(w, new THREE.Mesh(geo, domeMat), 0, centerZ, 3.1)
-      const slit = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.995, 16, 16, slitPhi - slitHalf, slitHalf * 2, 0, Math.PI / 2), galaxyWindowMat())
+      slitMat = galaxyWindowMat().clone()
+      slitMat.side = THREE.DoubleSide
+      slitMat.uniforms.uEnergy.value = 1.4
+      const slit = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.995, 16, 16, slitPhi - slitHalf, slitHalf * 2, 0, Math.PI / 2), slitMat)
       local(w, slit, 0, centerZ, 3.1)
       for (const phi of [slitPhi - slitHalf, slitPhi + slitHalf]) {
         const points: THREE.Vector3[] = []
@@ -676,24 +680,45 @@ const builders: Partial<Record<RoomId, Builder>> = {
       saddle.position.y = 1.82
       const axis = new THREE.Vector3(0.24, 0.65, 0.72).normalize()
       const axisRotation = new THREE.Quaternion().setFromUnitVectors(up, axis)
+      const faceRotation = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), axis)
       const pivot = new THREE.Vector3(0, 2.28, 0)
       const joint = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), P.gold)
       joint.position.copy(pivot)
-      const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 2.7, 16), P.gold)
+      const mountHead = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.26, 0.52, 12), P.gold)
+      mountHead.position.set(0, 2.04, 0)
+      const forkSide = new THREE.Vector3().crossVectors(axis, up).normalize()
+      const decShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.98, 10), P.gold)
+      decShaft.position.copy(pivot)
+      decShaft.quaternion.setFromUnitVectors(up, forkSide)
+      const fork: THREE.Mesh[] = []
+      for (const sign of [-1, 1]) {
+        const foot = new THREE.Vector3(0, 1.84, 0).addScaledVector(forkSide, sign * 0.42)
+        const top = pivot.clone().addScaledVector(forkSide, sign * 0.42)
+        const direction = top.clone().sub(foot)
+        const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.07, direction.length(), 8), P.gold)
+        arm.position.copy(foot).add(top).multiplyScalar(0.5)
+        arm.quaternion.setFromUnitVectors(up, direction.normalize())
+        fork.push(arm)
+      }
+      const tubeMat = new THREE.MeshPhysicalMaterial({ color: '#282337', metalness: 0.82, roughness: 0.24, clearcoat: 0.8, clearcoatRoughness: 0.18 })
+      const lensMat = new THREE.MeshPhysicalMaterial({ color: '#303b70', emissive: '#111a45', emissiveIntensity: 0.35, metalness: 0.55, roughness: 0.16, clearcoat: 1 })
+      const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 2.7, 16), tubeMat)
       tube.position.copy(pivot).addScaledVector(axis, 1.35)
       tube.quaternion.copy(axisRotation)
       const eyepiece = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 0.45, 12), P.gold)
-      eyepiece.position.copy(pivot).addScaledVector(axis, 0.16)
+      eyepiece.position.copy(pivot).addScaledVector(axis, -0.24)
       eyepiece.quaternion.copy(axisRotation)
-      const forkSide = new THREE.Vector3().crossVectors(axis, new THREE.Vector3(0, 0, 1)).normalize()
-      const fork: THREE.Mesh[] = []
-      for (const sign of [-1, 1]) {
-        const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.06, 1.45, 8), P.gold)
-        arm.position.copy(pivot).addScaledVector(axis, 0.7).addScaledVector(forkSide, sign * 0.34)
-        arm.quaternion.copy(axisRotation)
-        fork.push(arm)
+      const objective = new THREE.Mesh(new THREE.CircleGeometry(0.16, 24), lensMat)
+      objective.position.copy(pivot).addScaledVector(axis, 2.69)
+      objective.quaternion.copy(faceRotation)
+      const bands: THREE.Mesh[] = []
+      for (const distance of [0.28, 2.56]) {
+        const band = new THREE.Mesh(new THREE.TorusGeometry(0.205, 0.032, 8, 24), P.gold)
+        band.position.copy(pivot).addScaledVector(axis, distance)
+        band.quaternion.copy(faceRotation)
+        bands.push(band)
       }
-      telescope.add(saddle, joint, tube, eyepiece, ...fork)
+      telescope.add(saddle, mountHead, decShaft, ...fork, joint, tube, eyepiece, objective, ...bands)
       local(w, telescope, -1.6, centerZ + 0.6)
       for (let i = 0; i < 8; i++) {
         const a = (i / 8) * Math.PI * 2
@@ -731,7 +756,12 @@ const builders: Partial<Record<RoomId, Builder>> = {
     const t = label(c.settings.futureName, `${L('semilla', 'seed')} ${c.settings.seed}`, 6)
     local(w, t, 0, z0 - w.L + 0.6, 8.6)
     add({ id: 'future', pos: w.world(0, z0 - w.L / 2 + 4), r: 2.4, label: `${c.settings.futureName} · ${L('ver eventos', 'see events')}`, room: w.room, action: () => hooks.openEvents() })
-    return { tick: (_dt, tm) => spin.forEach((o, i) => (o.rotation.y = tm * 0.2 * (i % 2 ? 1 : -1))) }
+    return {
+      tick: (_dt, tm) => {
+        spin.forEach((o, i) => (o.rotation.y = tm * 0.2 * (i % 2 ? 1 : -1)))
+        if (slitMat) slitMat.uniforms.uTime.value = tm
+      },
+    }
   },
   jardin(w, c, add, hooks) {
     const cz = z0 - 22
