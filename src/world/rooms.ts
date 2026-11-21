@@ -620,11 +620,20 @@ const builders: Partial<Record<RoomId, Builder>> = {
       const radius = Math.min(w.W * 0.46, w.H * 0.62)
       const domeMat = new THREE.MeshPhysicalMaterial({ color: '#211a32', metalness: 0.22, roughness: 0.48, side: THREE.DoubleSide })
       for (const geo of [
-        new THREE.SphereGeometry(radius, 32, 16, 0, Math.PI - 0.18, 0, Math.PI / 2),
-        new THREE.SphereGeometry(radius, 32, 16, Math.PI + 0.18, Math.PI - 0.18, 0, Math.PI / 2),
+        new THREE.SphereGeometry(radius, 32, 16, 0, Math.PI - 0.32, 0, Math.PI / 2),
+        new THREE.SphereGeometry(radius, 32, 16, Math.PI + 0.32, Math.PI - 0.32, 0, Math.PI / 2),
       ]) local(w, new THREE.Mesh(geo, domeMat), 0, centerZ, 3.1)
-      const slit = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.995, 12, 12, Math.PI - 0.18, 0.36, 0, Math.PI / 2), galaxyWindowMat())
+      const slit = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.995, 16, 16, Math.PI - 0.32, 0.64, 0, Math.PI / 2), galaxyWindowMat())
       local(w, slit, 0, centerZ, 3.1)
+      for (const phi of [Math.PI - 0.32, Math.PI + 0.32]) {
+        const points: THREE.Vector3[] = []
+        for (let i = 0; i <= 24; i++) {
+          const theta = (i / 24) * Math.PI / 2
+          points.push(new THREE.Vector3(radius * Math.sin(theta) * Math.cos(phi), radius * Math.cos(theta), radius * Math.sin(theta) * Math.sin(phi)))
+        }
+        const edge = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 32, 0.028, 5), P.gold)
+        local(w, edge, 0, centerZ, 3.1)
+      }
       const chart = new THREE.Mesh(new THREE.TorusGeometry(3.25, 0.035, 8, 96), gold())
       chart.rotation.x = Math.PI / 2
       local(w, chart, 0, centerZ, 0.07)
@@ -637,27 +646,49 @@ const builders: Partial<Record<RoomId, Builder>> = {
         local(w, star, Math.cos(a) * 3.25, centerZ + Math.sin(a) * 3.25, 0.13)
       }
       const telescope = new THREE.Group()
-      const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.22, 2.7, 16), gold())
-      tube.rotation.z = -0.65
-      tube.position.set(0.15, 2.45, 0)
-      const eyepiece = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 0.42, 12), gold())
-      eyepiece.rotation.z = -0.65
-      eyepiece.position.set(-0.62, 3.43, 0)
-      telescope.add(tube, eyepiece)
-      const pivot = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), gold())
-      pivot.position.set(0.45, 1.5, 0)
-      telescope.add(pivot)
-      for (const angle of [0, 2.1, 4.2]) {
-        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.055, 1.7, 8), gold())
-        leg.position.set(0.45 + Math.cos(angle) * 0.48, 0.72, Math.sin(angle) * 0.48)
-        leg.rotation.z = Math.cos(angle) * 0.25
-        leg.rotation.x = Math.sin(angle) * 0.25
+      const pier = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.25, 1.8, 12), P.gold)
+      pier.position.y = 0.9
+      telescope.add(pier)
+      const up = new THREE.Vector3(0, 1, 0)
+      for (let i = 0; i < 3; i++) {
+        const angle = (i / 3) * Math.PI * 2
+        const foot = new THREE.Vector3(Math.cos(angle) * 0.82, 0.08, Math.sin(angle) * 0.82)
+        const top = new THREE.Vector3(0, 1.2, 0)
+        const direction = top.clone().sub(foot)
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.065, direction.length(), 8), P.gold)
+        leg.position.copy(foot).add(top).multiplyScalar(0.5)
+        leg.quaternion.setFromUnitVectors(up, direction.normalize())
         telescope.add(leg)
       }
+      const saddle = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.34, 0.22, 12), P.gold)
+      saddle.position.y = 1.82
+      const axis = new THREE.Vector3(-0.72, 0.68, -0.12).normalize()
+      const axisRotation = new THREE.Quaternion().setFromUnitVectors(up, axis)
+      const pivot = new THREE.Vector3(0, 2.28, 0)
+      const joint = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), P.gold)
+      joint.position.copy(pivot)
+      const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 2.7, 16), P.gold)
+      tube.position.copy(pivot).addScaledVector(axis, 1.35)
+      tube.quaternion.copy(axisRotation)
+      const eyepiece = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 0.45, 12), P.gold)
+      eyepiece.position.copy(pivot).addScaledVector(axis, 0.16)
+      eyepiece.quaternion.copy(axisRotation)
+      const forkSide = new THREE.Vector3().crossVectors(axis, new THREE.Vector3(0, 0, 1)).normalize()
+      const fork: THREE.Mesh[] = []
+      for (const sign of [-1, 1]) {
+        const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.06, 1.45, 8), P.gold)
+        arm.position.copy(pivot).addScaledVector(axis, 0.7).addScaledVector(forkSide, sign * 0.34)
+        arm.quaternion.copy(axisRotation)
+        fork.push(arm)
+      }
+      telescope.add(saddle, joint, tube, eyepiece, ...fork)
       local(w, telescope, -1.6, centerZ + 0.6)
       for (let i = 0; i < 8; i++) {
         const a = (i / 8) * Math.PI * 2
         const col = column(3.5, 0.22)
+        const capital = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.25, 0.18, 12), P.gold)
+        capital.position.y = 3.56
+        col.add(capital)
         local(w, col, Math.cos(a) * (radius - 0.5), centerZ + Math.sin(a) * (radius - 0.5))
       }
       const starfield = new THREE.Mesh(new THREE.PlaneGeometry(w.W - 2, w.H - 2), galaxyWindowMat())
