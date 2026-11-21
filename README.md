@@ -2,7 +2,7 @@
 
 **Live:** https://cyber-museum.vercel.app · [English](https://cyber-museum.vercel.app/?lang=en) · SuperAdmin: `#admin` (PIN 4444)
 
-Payments run in **demo mode** until `PEY_API_KEY` is set on the server (Vercel env var); the `/api` pey integration (`checkout`, `status`, `transactions`, `feed`, `webhook`) switches on automatically.
+Payments run in **demo mode** until `STRIPE_SECRET_KEY` is set on Vercel; then the Stripe Checkout API (`/api/checkout`, `status`, `transactions`, `feed`, `webhook`) switches on automatically. Shared content and media live in Vercel Blob (`BLOB_READ_WRITE_TOKEN`).
 
 **Arte · Tecnología · Eternidad.** Un museo digital 3D persistente y multijugador que se recorre en el navegador como un videojuego. Es una catedral neogótica futurista que flota en un universo de galaxias. Un estudio de **Ethercoded**.
 
@@ -28,14 +28,17 @@ Payments run in **demo mode** until `PEY_API_KEY` is set on the server (Vercel e
 Todo pago confirmado entra a `payments` (`src/payments/bus.ts`), que:
 dispara una onda en la nube gaussiana, cambia el color de la luz, genera ondas en el piso y planta una flor (con la semilla del pago) en el jardín.
 
-Hoy el museo usa `SimulatedProvider` (QR de demostración y botón “Simular pago”).
-**pey (siguiente fase):** `PeyProvider` (`src/payments/provider.ts`) se activa al poner la URL de un backend propio en *SuperAdmin → Pagos*. Ese backend debe:
+Sin `STRIPE_SECRET_KEY` el museo usa `SimulatedProvider` (modo demo con botón “Simular pago”). Con la clave, `StripeProvider` se activa solo:
 
-1. `POST /checkout` `{amount, concept, purpose, payer}`: llama a `POST https://api.pey.mx/codi/qr` o `/payment-link/create` **con la API key del lado del servidor** y devuelve `{id, qrString?, url?}`.
-2. Recibir los webhooks `codi.qr.payment_received` / `payment_link.status_updated`, validar la firma (Standard Webhooks) y deduplicar por `webhook-id`.
-3. `GET /events` (SSE): emite cada pago confirmado como `PaymentEvent` para que todos los museos abiertos reaccionen.
+| Variable (Vercel) | Uso |
+|---|---|
+| `STRIPE_SECRET_KEY` | Crea Checkout Sessions (`POST /api/checkout`) y consulta pagos |
+| `STRIPE_WEBHOOK_SECRET` | Opcional: verifica la firma de `POST /api/webhook` (`checkout.session.completed`) |
+| `STRIPE_CURRENCY` | Opcional, por defecto `mxn` |
+| `BLOB_READ_WRITE_TOKEN` | Contenido compartido (`/api/content`), archivos (`/api/upload`) y postulaciones (`/api/submit`) |
+| `ADMIN_PIN` / `REVENUE_PIN` | PIN del SuperAdmin y de Ingresos |
 
-La API key nunca va en el navegador.
+Flujo: `POST /api/checkout` → redirección a Stripe → regreso con `?paid=cs_…` → `GET /api/status` confirma y el museo reacciona. Las claves nunca van en el navegador.
 
 ## Idiomas / Languages
 
