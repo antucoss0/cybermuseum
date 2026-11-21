@@ -631,9 +631,9 @@ const builders: Partial<Record<RoomId, Builder>> = {
           void main(){ vec2 p = vW.xz;
             float m = fbm(p*0.18 + fbm(p*0.35)*1.6);
             float vein = smoothstep(0.035, 0.0, abs(fbm(p*0.5 + uTime*0.02) - 0.5));
-            vec3 col = mix(vec3(0.015,0.03,0.025), vec3(0.05,0.12,0.08), m);
+            vec3 col = mix(vec3(0.01,0.018,0.016), vec3(0.03,0.07,0.05), m);
             col = mix(col, vec3(0.08,0.05,0.12), smoothstep(0.55,0.8,m));
-            col += vec3(0.45,0.9,0.75)*vein*0.22*(1.0+uEnergy*2.5);
+            col += vec3(0.45,0.9,0.75)*vein*0.08*(1.0+uEnergy*3.0);
             gl_FragColor = vec4(col,1.0);
             #include <tonemapping_fragment>
             #include <colorspace_fragment>

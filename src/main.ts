@@ -233,6 +233,8 @@ engine.onTick((dt, t) => {
     const y = 3 + Math.sin(landingP * Math.PI * 2) * 2 + landingP * 4
     camera.position.set(Math.sin(a) * r, y, Math.cos(a) * r)
     camera.lookAt(0, 7 + landingP * 2, 0)
+    cloud.points.rotation.y = landingP * Math.PI * 1.5 + t * 0.02
+    cloud.points.scale.setScalar(1 + Math.sin(landingP * Math.PI) * 0.35)
     world.tick(dt, t, 'lobby')
     return
   }
