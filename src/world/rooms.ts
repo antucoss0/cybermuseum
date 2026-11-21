@@ -8,6 +8,9 @@ import { archOutline, candelabra, chandelier, column } from './gothic'
 import { paintingStele, sculpture, textureFor } from './art'
 import { CORRIDOR_END, type Interactable, type Wing } from './building'
 import { fit, later, loadGLB, loadPLY, tame } from './assets'
+import { shopDecor } from './shop'
+const shopTicks: ((t: number) => void)[] = []
+export const tickShop = (t: number) => shopTicks.forEach((f) => f(t))
 
 const gold = () => M.gold
 /** Ambient motes that give every hall its own atmosphere (colour, density, motion). */
@@ -416,6 +419,8 @@ const builders: Partial<Record<RoomId, Builder>> = {
   },
   tienda(w, c, add, hooks) {
     roomLight(w, '#e2d4ff', 70)
+    const decor = shopDecor(w, c)
+    shopTicks.push(decor.tick)
     const list = c.products
     list.forEach((p, i) => {
       const side = i % 2 ? 1 : -1
@@ -620,10 +625,15 @@ const builders: Partial<Record<RoomId, Builder>> = {
         uniforms: { uTime: shared.time, uEnergy: shared.energy, uC: { value: new THREE.Vector2(0, cz) } },
         vertexShader: `varying vec3 vW; void main(){ vec4 w = modelMatrix*vec4(position,1.0); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
         fragmentShader: `varying vec3 vW; uniform float uTime; uniform float uEnergy;
-          void main(){ vec2 p = vW.xz; float g = abs(fract(p.x*0.5)-0.5) < 0.02 || abs(fract(p.y*0.5)-0.5) < 0.02 ? 1.0 : 0.0;
-            float n = sin(p.x*1.7+uTime*0.3)*sin(p.y*1.3-uTime*0.2);
-            vec3 col = vec3(0.02,0.03,0.06) + vec3(0.05,0.12,0.18)*(0.5+0.5*n);
-            col += vec3(0.55,0.45,1.0)*g*0.12*(1.0+uEnergy*2.0);
+          float h(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+          float n2(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y); }
+          float fbm(vec2 p){ float a=0.5, s=0.0; for(int i=0;i<5;i++){ s+=a*n2(p); p*=2.03; a*=0.5; } return s; }
+          void main(){ vec2 p = vW.xz;
+            float m = fbm(p*0.18 + fbm(p*0.35)*1.6);
+            float vein = smoothstep(0.035, 0.0, abs(fbm(p*0.5 + uTime*0.02) - 0.5));
+            vec3 col = mix(vec3(0.015,0.03,0.025), vec3(0.05,0.12,0.08), m);
+            col = mix(col, vec3(0.08,0.05,0.12), smoothstep(0.55,0.8,m));
+            col += vec3(0.45,0.9,0.75)*vein*0.22*(1.0+uEnergy*2.5);
             gl_FragColor = vec4(col,1.0);
             #include <tonemapping_fragment>
             #include <colorspace_fragment>
@@ -644,7 +654,7 @@ const builders: Partial<Record<RoomId, Builder>> = {
     add({ id: 'garden', pos: w.world(0, cz + 6), r: 2.4, label: L('Plantar una flor (apoyar al jardín)', 'Plant a flower (support the garden)'), room: w.room, action: () => hooks.donate() })
     // crystal trees
     const rng = mulberry32(99)
-    const trunkMat = new THREE.MeshStandardMaterial({ color: '#3b2f66', metalness: 0.6, roughness: 0.3 })
+    const trunkMat = new THREE.MeshStandardMaterial({ color: '#2b2130', metalness: 0.05, roughness: 0.95 })
     for (let i = 0; i < 9; i++) {
       const a = (i / 9) * Math.PI * 2 + 0.3
       const r = R - 3 - rng() * 2
@@ -653,14 +663,23 @@ const builders: Partial<Record<RoomId, Builder>> = {
       if (lz > cz + R - 6 && Math.abs(lx) < 6) continue
       const tree = new THREE.Group()
       const h = 3 + rng() * 2
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.2, h, 6), trunkMat)
-      trunk.position.y = h / 2
-      tree.add(trunk)
-      for (let j = 0; j < 7; j++) {
-        const cr = new THREE.Mesh(new THREE.OctahedronGeometry(0.4 + rng() * 0.6), j % 2 ? M.neonSoft : M.glass)
-        cr.position.set((rng() - 0.5) * 2, h + (rng() - 0.3) * 1.5, (rng() - 0.5) * 2)
-        cr.rotation.set(rng() * 3, rng() * 3, 0)
+      const bend = new THREE.CatmullRomCurve3([new THREE.Vector3(0, 0, 0), new THREE.Vector3((rng() - 0.5) * 0.8, h * 0.4, (rng() - 0.5) * 0.8), new THREE.Vector3((rng() - 0.5) * 1.4, h * 0.8, (rng() - 0.5) * 1.4), new THREE.Vector3((rng() - 0.5) * 1.8, h, (rng() - 0.5) * 1.8)])
+      tree.add(new THREE.Mesh(new THREE.TubeGeometry(bend, 16, 0.16, 6), trunkMat))
+      const top = bend.getPoint(1)
+      const leafCol = new THREE.Color().setHSL(0.38 + rng() * 0.45, 0.55, 0.35)
+      const leafMat = new THREE.MeshStandardMaterial({ color: leafCol, emissive: leafCol, emissiveIntensity: 0.35, roughness: 0.8, flatShading: true })
+      for (let j = 0; j < 9; j++) {
+        const cr = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5 + rng() * 0.7, 1), leafMat)
+        cr.position.set(top.x + (rng() - 0.5) * 2.2, top.y + (rng() - 0.4) * 1.2, top.z + (rng() - 0.5) * 2.2)
+        cr.scale.y = 0.7
         tree.add(cr)
+      }
+      const strandMat = new THREE.MeshBasicMaterial({ color: leafCol.clone().offsetHSL(0, 0.2, 0.3), toneMapped: false, transparent: true, opacity: 0.75 })
+      for (let j = 0; j < 10; j++) {
+        const len = 0.8 + rng() * 1.8
+        const st = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, len, 3), strandMat)
+        st.position.set(top.x + (rng() - 0.5) * 2.4, top.y - len / 2 - 0.2, top.z + (rng() - 0.5) * 2.4)
+        tree.add(st)
       }
       local(w, tree, lx, lz)
       w.obstacle(lx, lz, 0.6)
@@ -706,6 +725,29 @@ const builders: Partial<Record<RoomId, Builder>> = {
     )
     const heroes: THREE.Object3D[] = []
     const queued: PaymentEvent[] = []
+    const blade = new THREE.ConeGeometry(0.035, 0.55, 3)
+    blade.translate(0, 0.27, 0)
+    const grassMat = new THREE.MeshStandardMaterial({ color: '#1f5a46', emissive: '#0d3328', roughness: 0.9 })
+    grassMat.onBeforeCompile = (sh) => {
+      sh.uniforms.uTime = shared.time
+      sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvec4 wp = instanceMatrix * vec4(0.0,0.0,0.0,1.0); transformed.x += sin(uTime*1.3 + wp.x*0.7 + wp.z*0.5) * 0.12 * position.y;')
+    }
+    const grassN = 3500
+    const grass = new THREE.InstancedMesh(blade, grassMat, grassN)
+    const gm = new THREE.Matrix4()
+    const gq = new THREE.Quaternion()
+    for (let i = 0, k = 0; i < grassN * 2 && k < grassN; i++) {
+      const a = rng() * Math.PI * 2
+      const rr = 5.2 + Math.sqrt(rng()) * (R - 5.4)
+      const gx = Math.cos(a) * rr
+      const gz = cz + Math.sin(a) * rr
+      if (gz > cz + R - 7 && Math.abs(gx) < 2.6) continue
+      gq.setFromEuler(new THREE.Euler((rng() - 0.5) * 0.4, rng() * 6.28, (rng() - 0.5) * 0.4))
+      gm.compose(new THREE.Vector3(gx, w.floorY, gz), gq, new THREE.Vector3(1, 0.6 + rng() * 1.2, 1))
+      grass.setMatrixAt(k++, gm)
+      grass.count = k
+    }
+    w.group.add(grass)
     const fireflies = motes(w, '#d8ff9b', 420, [R * 2, 6, R * 2], 0.12, 0.09)
     const ffHolder = w.group.children[w.group.children.length - 1]
     ffHolder.position.z = cz + R

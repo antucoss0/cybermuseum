@@ -5,7 +5,7 @@ import type { Content, RoomId } from '../content/types'
 import type { PaymentEvent } from '../payments/bus'
 import { Nav } from './nav'
 import { CORRIDOR_END, WING_DEFS, buildLobby, makeWing, type Interactable, type Wing } from './building'
-import { buildRoom, type Hooks, type RoomRuntime } from './rooms'
+import { buildRoom, tickShop, type Hooks, type RoomRuntime } from './rooms'
 import { buildSpaces, textPanel, type SpaceHooks } from './spaces'
 import { buildExtras, type ExtraHooks } from './extras'
 
@@ -81,6 +81,7 @@ export function buildWorld(c: Content, hooks: Hooks & SpaceHooks & ExtraHooks): 
       exterior.tick(t)
       spaces.tick(dt, t)
       extras.tick(t)
+      tickShop(t)
       for (const r of runtimes) r.tick(dt, t, here)
     },
     addPlant(p, fresh) {
