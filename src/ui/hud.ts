@@ -392,8 +392,9 @@ export class Hud {
       if (!who.name || !/^\S+@\S+\.\S+$/.test(who.email) || !v('t')) return ((m.querySelector('[data-err]') as HTMLElement).textContent = L('Completa nombre, email válido y título.', 'Fill in name, a valid email and a title.'))
       localStorage.setItem('cm.registration', JSON.stringify(who))
       const sub = { id: 's' + Date.now().toString(36), name: who.name, email: who.email, title: v('t'), link: v('l'), message: v('m'), at: Date.now(), status: 'pendiente' as const, callId }
-      const ok = await fetch('./api/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sub) }).then((r) => r.ok).catch(() => false)
-      if (!ok) content.update((d) => d.submissions.unshift(sub))
+      const st = await fetch('./api/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sub) }).then((r) => r.status).catch(() => 0)
+      if (st === 503) content.update((d) => d.submissions.unshift(sub))
+      else if (st !== 200) return ((m.querySelector('[data-err]') as HTMLElement).textContent = L('No se pudo enviar. Intenta de nuevo.', 'Could not send. Please try again.'))
       this.modal('call', `<span class="kicker">${L('Recibido', 'Received')}</span><h2 class="serif">${L('Gracias por postularte', 'Thanks for applying')}</h2><p class="desc">${L('El equipo curatorial la revisará y te escribirá por email.', 'The curatorial team will review it and email you.')}</p>`)
     })
   }

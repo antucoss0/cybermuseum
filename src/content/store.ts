@@ -23,7 +23,7 @@ function merge(saved: Partial<Content> | null): Content {
 
 function load(): Content {
   try {
-    return merge(JSON.parse(localStorage.getItem(KEY) || 'null'))
+    return merge(JSON.parse(localStorage.getItem(KEY) || localStorage.getItem('cm.content.v1') || 'null'))
   } catch {
     return defaultContent()
   }
@@ -37,15 +37,18 @@ class ContentStore {
   data: Content = load()
   changed = new Emitter<Content>()
   remote: 'unknown' | 'on' | 'off' = 'unknown'
+  private adminPulled = false
   lastSync: 'idle' | 'saving' | 'saved' | 'error' = 'idle'
   synced = new Emitter<string>()
   private pushTimer = 0
 
   async pull() {
     try {
-      const r = await fetch('./api/content', { cache: 'no-store' })
+      const pin = sessionStorage.getItem('cm.adminPin')
+      const r = await fetch('./api/content', { cache: 'no-store', headers: pin ? { 'x-admin-pin': pin } : {} })
+      this.adminPulled = Boolean(pin) && r.ok
       this.remote = r.status === 503 ? 'off' : 'on'
-      if (r.status === 404) this.push()
+      if (r.status === 404 && pin) ((this.adminPulled = true), this.push())
       if (!r.ok) return false
       const j = await r.json()
       this.data = merge(j.content)
@@ -68,7 +71,7 @@ class ContentStore {
 
   push() {
     const pin = sessionStorage.getItem('cm.adminPin')
-    if (!pin || this.remote === 'off') return
+    if (!pin || this.remote === 'off' || !this.adminPulled) return
     clearTimeout(this.pushTimer)
     this.pushTimer = window.setTimeout(async () => {
       this.lastSync = 'saving'

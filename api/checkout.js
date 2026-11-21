@@ -9,7 +9,7 @@ export default async function handler(req, res) {
     const amount = Math.round(Number(b.amount) * 100) / 100
     if (!(amount >= 10 && amount <= 100000)) return send(res, 400, { error: 'amount out of range' })
     const concept = String(b.concept || 'Cyber Museum').slice(0, 120)
-    const meta = { app: 'cyber-museum', purpose: String(b.purpose || 'donacion').slice(0, 20), payer: String(b.payer || '').slice(0, 40) }
+    const meta = { app: 'cyber-museum', purpose: ['donacion', 'tienda', 'jardin', 'entrada'].includes(b.purpose) ? b.purpose : 'donacion', payer: String(b.payer || '').slice(0, 40) }
     const base = origin(req)
     const s = await stripe('/checkout/sessions', {
       mode: 'payment',

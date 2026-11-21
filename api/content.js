@@ -10,7 +10,21 @@ export default async function handler(req, res) {
       const meta = await head(PATH).catch(() => null)
       if (!meta) return send(res, 404, { error: 'empty' })
       const r = await fetch(`${meta.url}?v=${Date.parse(meta.uploadedAt) || Date.now()}`, { cache: 'no-store' })
-      return send(res, 200, { content: await r.json(), at: meta.uploadedAt })
+      const doc = await r.json()
+      const url = new URL(req.url, 'http://x')
+      const code = url.searchParams.get('meet')
+      if (code) {
+        const m = (doc.meetings || []).find((x) => x.active && x.code === code)
+        if (!m) return send(res, 404, { error: 'no meeting' })
+        const name = String(url.searchParams.get('name') || '').trim().toLowerCase()
+        const guests = String(m.allowed || '').split(/\n|,/).map((x) => x.trim().toLowerCase()).filter(Boolean)
+        return send(res, 200, { meeting: { id: m.id, name: m.name, code: m.code, active: true, allowed: '' }, allowed: !guests.length || guests.includes(name) })
+      }
+      if (!isAdmin(req)) {
+        doc.submissions = []
+        doc.meetings = []
+      }
+      return send(res, 200, { content: doc, at: meta.uploadedAt })
     }
     if (req.method === 'PUT') {
       if (!isAdmin(req)) return send(res, 401, { error: 'admin pin required' })

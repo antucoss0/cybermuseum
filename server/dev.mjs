@@ -1,6 +1,6 @@
 // Local API server mirroring the Vercel functions in /api (used by `npm run api`).
 import http from 'node:http'
-const routes = ['health', 'checkout', 'status', 'transactions', 'feed', 'webhook', 'content', 'upload', 'submit']
+const routes = ['health', 'checkout', 'status', 'transactions', 'feed', 'webhook', 'content', 'upload', 'submit', 'auth']
 const mods = Object.fromEntries(await Promise.all(routes.map(async (r) => [r, (await import(`../api/${r}.js`)).default])))
 http
   .createServer((req, res) => {

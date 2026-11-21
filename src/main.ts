@@ -412,9 +412,19 @@ async function enterMuseum(profile: { kind: AvatarKind; name: string }) {
     multi.say(text)
   })
   const meetCode = params.get('meet')
-  const meeting = meetCode ? content.data.meetings.find((m) => m.active && m.code === meetCode) : undefined
-  const guests = meeting?.allowed.split(/\n|,/).map((x) => x.trim().toLowerCase()).filter(Boolean) ?? []
-  const inMeeting = Boolean(meeting && (!guests.length || guests.includes(profile.name.trim().toLowerCase())))
+  let meeting = meetCode ? content.data.meetings.find((m) => m.active && m.code === meetCode) : undefined
+  let inMeeting = false
+  if (meetCode) {
+    const r = await fetch(`./api/content?meet=${encodeURIComponent(meetCode)}&name=${encodeURIComponent(profile.name)}`, { cache: 'no-store' }).catch(() => null)
+    if (r && r.status !== 503) {
+      const j = r.ok ? await r.json() : null
+      meeting = j?.meeting
+      inMeeting = Boolean(j?.allowed)
+    } else {
+      const guests = meeting?.allowed.split(/\n|,/).map((x) => x.trim().toLowerCase()).filter(Boolean) ?? []
+      inMeeting = Boolean(meeting && (!guests.length || guests.includes(profile.name.trim().toLowerCase())))
+    }
+  }
   if (meetCode && !inMeeting) hud.toast(L('Sala de juntas', 'Meeting room'), meeting ? L('Tu nombre no está en la lista de invitados', 'Your name is not on the guest list') : L('Enlace inválido o inactivo', 'Invalid or inactive link'))
   const start = inMeeting ? 'juntas' : (params.get('room') as RoomId) || 'lobby'
   place(start)

@@ -133,7 +133,9 @@ export function openAdmin(ui: HTMLElement, onClose: () => void) {
     dots.forEach((d, i) => d.classList.toggle('on', i < pin.length))
     if (pin.length < 4) return
     const hash = await sha(pin)
-    if (hash === DEFAULT_ADMIN_HASH) {
+    const server = await fetch('./api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin, kind: 'admin' }) }).then((r) => r.status).catch(() => 0)
+    if (server === 200 || (server !== 401 && hash === DEFAULT_ADMIN_HASH)) {
+      content.pull()
       sessionStorage.setItem('cm.admin', hash)
       sessionStorage.setItem('cm.adminPin', pin)
       window.removeEventListener('keydown', onKey)
@@ -188,8 +190,11 @@ function panel(el: HTMLElement, close: () => void) {
   const render = () => {
     aside.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab))
     main.scrollTop = 0
-    delete main.dataset.open
-    delete main.dataset.synced
+    if (main.dataset.tab !== tab) {
+      delete main.dataset.open
+      delete main.dataset.synced
+      main.dataset.tab = tab
+    }
     if (tab in LISTS) return listView(main, tab as ListKey, render)
     if (tab.startsWith('h-')) return hallsView(tab.slice(2) as any)(main, render)
     ;(views[tab] ?? views.resumen)(main, render)
@@ -232,13 +237,13 @@ const views: Record<string, (m: HTMLElement, rerender: () => void) => void> = {
     const shown = subs.filter((s) => filter === 'todas' || (s.status ?? 'pendiente') === filter)
     m.innerHTML = `<h1 class="serif">${L('Solicitudes de convocatoria', 'Open call submissions')}</h1><p class="lead">${L('Revisa, aprueba o rechaza las propuestas que llegan desde el kiosco de convocatorias del lobby.', 'Review, approve or reject proposals sent from the Temporary Exhibitions hall.')}</p>
       <div class="row" style="margin-bottom:14px">${[['todas', L('Todas', 'All'), subs.length], ['pendiente', L('Pendientes', 'Pending'), count('pendiente')], ['aprobada', L('Aprobadas', 'Approved'), count('aprobada')], ['rechazada', L('Rechazadas', 'Rejected'), count('rechazada')]].map(([k, l, n]) => `<button class="btn sm ${filter === k ? 'primary' : ''}" data-filter="${k}">${l} · ${n}</button>`).join('')}</div>
-      <div class="subs">${shown.map((s) => `<div class="sub sec glass st-${s.status ?? 'pendiente'}"><div class="row" style="justify-content:space-between"><div><span class="kicker">${timeAgo(s.at)} · ${esc(s.status ?? 'pendiente')}</span><h3 class="serif">${esc(s.title)}</h3><small>${esc(s.name)} · <a href="mailto:${esc(s.email)}">${esc(s.email)}</a>${s.link ? ` · <a href="${esc(s.link)}" target="_blank" rel="noopener">${L('portafolio', 'portfolio')}</a>` : ''}</small></div>
-        <div class="row"><button class="btn sm" data-st="aprobada" data-id="${s.id}">✓ ${L('Aprobar', 'Approve')}</button><button class="btn sm ghost" data-st="rechazada" data-id="${s.id}">✕ ${L('Rechazar', 'Reject')}</button><button class="btn sm ghost" data-st="pendiente" data-id="${s.id}">↺</button><button class="btn sm ghost" data-del="${s.id}">${L('Eliminar', 'Delete')}</button></div></div>
-        <p class="note" style="margin:10px 0">${esc(s.message)}</p><div class="row"><input data-note="${s.id}" placeholder="${L('Nota curatorial interna', 'Internal curatorial note')}" value="${esc(s.note ?? '')}" style="flex:1"><button class="btn sm" data-savenote="${s.id}">${L('Guardar nota', 'Save note')}</button></div></div>`).join('') || `<p class="note">${L('No hay solicitudes en esta vista.', 'No submissions in this view.')}</p>`}</div>`
+      <div class="subs">${shown.map((s) => `<div class="sub sec glass st-${s.status ?? 'pendiente'}"><div class="row" style="justify-content:space-between"><div><span class="kicker">${timeAgo(s.at)} · ${esc(s.status ?? 'pendiente')}</span><h3 class="serif">${esc(s.title)}</h3><small>${esc(s.name)} · <a href="mailto:${esc(s.email)}">${esc(s.email)}</a>${s.link ? ` · <a href="${esc(safeUrl(s.link))}" target="_blank" rel="noopener">${L('portafolio', 'portfolio')}</a>` : ''}</small></div>
+        <div class="row"><button class="btn sm" data-st="aprobada" data-id="${esc(s.id)}">✓ ${L('Aprobar', 'Approve')}</button><button class="btn sm ghost" data-st="rechazada" data-id="${esc(s.id)}">✕ ${L('Rechazar', 'Reject')}</button><button class="btn sm ghost" data-st="pendiente" data-id="${esc(s.id)}">↺</button><button class="btn sm ghost" data-del="${esc(s.id)}">${L('Eliminar', 'Delete')}</button></div></div>
+        <p class="note" style="margin:10px 0">${esc(s.message)}</p><div class="row"><input data-note="${esc(s.id)}" placeholder="${L('Nota curatorial interna', 'Internal curatorial note')}" value="${esc(s.note ?? '')}" style="flex:1"><button class="btn sm" data-savenote="${esc(s.id)}">${L('Guardar nota', 'Save note')}</button></div></div>`).join('') || `<p class="note">${L('No hay solicitudes en esta vista.', 'No submissions in this view.')}</p>`}</div>`
     m.querySelectorAll<HTMLButtonElement>('[data-filter]').forEach((b) => (b.onclick = () => ((m.dataset.filter = b.dataset.filter!), rr())))
     m.querySelectorAll<HTMLButtonElement>('[data-st]').forEach((b) => (b.onclick = () => (content.update((d) => { const x = d.submissions.find((s) => s.id === b.dataset.id); if (x) x.status = b.dataset.st as any }), rr())))
     m.querySelectorAll<HTMLButtonElement>('[data-savenote]').forEach((b) => (b.onclick = () => content.update((d) => { const x = d.submissions.find((s) => s.id === b.dataset.savenote); if (x) x.note = (m.querySelector(`[data-note="${b.dataset.savenote}"]`) as HTMLInputElement).value })))
-    m.querySelectorAll<HTMLButtonElement>('[data-del]').forEach((b) => (b.onclick = () => confirm(L('¿Eliminar?', 'Delete?')) && (content.update((d) => (d.submissions = d.submissions.filter((s) => s.id !== b.dataset.del))), rr())))
+    m.querySelectorAll<HTMLButtonElement>('[data-del]').forEach((b) => (b.onclick = () => confirm(L('¿Eliminar?', 'Delete?')) && (fetch(`./api/submit?id=${encodeURIComponent(b.dataset.del!)}`, { method: 'DELETE', headers: { 'x-admin-pin': sessionStorage.getItem('cm.adminPin') ?? '' } }).catch(() => {}), content.update((d) => (d.submissions = d.submissions.filter((s) => s.id !== b.dataset.del))), rr())))
   },
   salas(m, rr) {
     const c = content.data
@@ -267,12 +272,12 @@ const views: Record<string, (m: HTMLElement, rerender: () => void) => void> = {
         <label><span><input type="checkbox" data-k="callOpen" ${t.callOpen ? 'checked' : ''}> Convocatoria abierta</span></label>
       </div><div class="row"><button class="btn primary sm" data-save>${L('Guardar', 'Save')}</button></div></div>
       <div class="sec glass"><h3 class="serif">Propuestas recibidas (${content.data.submissions.length})</h3>
-      <table><tr><th>Fecha</th><th>Nombre</th><th>Propuesta</th><th>Link</th><th></th></tr>${content.data.submissions.map((s) => `<tr><td>${timeAgo(s.at)}</td><td>${esc(s.name)}<br><small>${esc(s.email)}</small></td><td><b>${esc(s.title)}</b><br><small>${esc(s.message)}</small></td><td>${s.link ? `<a href="${esc(s.link)}" target="_blank" rel="noopener">abrir</a>` : ''}</td><td><button class="btn sm ghost" data-del="${s.id}">✕</button></td></tr>`).join('') || '<tr><td colspan="5">Aún no hay propuestas.</td></tr>'}</table></div>`
+      <table><tr><th>Fecha</th><th>Nombre</th><th>Propuesta</th><th>Link</th><th></th></tr>${content.data.submissions.map((s) => `<tr><td>${timeAgo(s.at)}</td><td>${esc(s.name)}<br><small>${esc(s.email)}</small></td><td><b>${esc(s.title)}</b><br><small>${esc(s.message)}</small></td><td>${s.link ? `<a href="${esc(safeUrl(s.link))}" target="_blank" rel="noopener">abrir</a>` : ''}</td><td><button class="btn sm ghost" data-del="${esc(s.id)}">✕</button></td></tr>`).join('') || '<tr><td colspan="5">Aún no hay propuestas.</td></tr>'}</table></div>`
     m.querySelector('[data-save]')!.addEventListener('click', () => {
       content.update((d) => m.querySelectorAll<HTMLInputElement>('.fgrid [data-k]').forEach((i) => setP(d.temp, i.dataset.k!, i.type === 'checkbox' ? i.checked : i.value)))
       rr()
     })
-    m.querySelectorAll<HTMLButtonElement>('[data-del]').forEach((b) => (b.onclick = () => (content.update((d) => (d.submissions = d.submissions.filter((s) => s.id !== b.dataset.del))), rr())))
+    m.querySelectorAll<HTMLButtonElement>('[data-del]').forEach((b) => (b.onclick = () => (fetch(`./api/submit?id=${encodeURIComponent(b.dataset.del!)}`, { method: 'DELETE', headers: { 'x-admin-pin': sessionStorage.getItem('cm.adminPin') ?? '' } }).catch(() => {}), content.update((d) => (d.submissions = d.submissions.filter((s) => s.id !== b.dataset.del))), rr())))
   },
   builder(m, rr) {
     const s = content.data.settings
@@ -339,6 +344,7 @@ const views: Record<string, (m: HTMLElement, rerender: () => void) => void> = {
 }
 
 
+const safeUrl = (u: string) => (/^https?:\/\//i.test(u) ? u : '#')
 const PURPOSE_COLORS: Record<string, string> = { donacion: '#b89cff', tienda: '#7cf2e4', jardin: '#ff9be9', entrada: '#8fb4ff' }
 function revenueCharts(list: PaymentEvent[]) {
   const days = 14
@@ -365,11 +371,11 @@ function revenueCharts(list: PaymentEvent[]) {
   const R = 60, C = 2 * Math.PI * R
   const arcs = Object.entries(by).map(([k, v]) => {
     const len = (v / total) * C
-    const s = `<circle r="${R}" cx="80" cy="80" fill="none" stroke="${PURPOSE_COLORS[k] ?? '#fff'}" stroke-width="18" stroke-dasharray="${len} ${C - len}" stroke-dashoffset="${-acc}" transform="rotate(-90 80 80)"><title>${k}: ${money(v)}</title></circle>`
+    const s = `<circle r="${R}" cx="80" cy="80" fill="none" stroke="${PURPOSE_COLORS[k] ?? '#fff'}" stroke-width="18" stroke-dasharray="${len} ${C - len}" stroke-dashoffset="${-acc}" transform="rotate(-90 80 80)"><title>${esc(k)}: ${money(v)}</title></circle>`
     acc += len
     return s
   }).join('')
-  const legend = Object.entries(by).map(([k, v]) => `<div><i style="background:${PURPOSE_COLORS[k] ?? '#fff'}"></i>${k} <b>${money(v)}</b> <small>${Math.round((v / total) * 100)}%</small></div>`).join('')
+  const legend = Object.entries(by).map(([k, v]) => `<div><i style="background:${PURPOSE_COLORS[k] ?? '#fff'}"></i>${esc(k)} <b>${money(v)}</b> <small>${Math.round((v / total) * 100)}%</small></div>`).join('')
   const hours = Array.from({ length: 24 }, () => 0)
   for (const p of list) hours[new Date(p.at).getHours()] += p.amount
   const hm = Math.max(1, ...hours)

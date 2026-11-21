@@ -171,10 +171,14 @@ export function aboutView(m: HTMLElement, rr: R) {
 /** Revenue lives behind a second PIN (4441). */
 export function revenueView(charts: () => string, table: (n: number) => string) {
   return (m: HTMLElement, rr: R) => {
-    const pin = sessionStorage.getItem('cm.revenuePin')
-    if (pin !== '4441') {
+    if (!sessionStorage.getItem('cm.revenuePin')) {
       m.innerHTML = `<h1 class="serif">${L('Ingresos', 'Revenue')}</h1><div class="sec glass" style="max-width:360px"><p class="note">${L('Sección protegida: introduce el PIN de ingresos.', 'Protected section: enter the revenue PIN.')}</p><div class="row"><input type="password" inputmode="numeric" maxlength="4" data-rpin style="flex:1"><button class="btn primary sm" data-ok>${L('Entrar', 'Enter')}</button></div><p class="note err" data-err></p></div>`
-      const go = () => (val(m, '[data-rpin]') === '4441' ? (sessionStorage.setItem('cm.revenuePin', '4441'), rr()) : ((m.querySelector('[data-err]') as HTMLElement).textContent = L('PIN incorrecto', 'Wrong PIN')))
+      const go = async () => {
+        const pin = val(m, '[data-rpin]')
+        const st = await fetch('./api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin, kind: 'revenue' }) }).then((r) => r.status).catch(() => 0)
+        if (st === 200 || (st !== 401 && pin === '4441')) (sessionStorage.setItem('cm.revenuePin', pin), rr())
+        else (m.querySelector('[data-err]') as HTMLElement).textContent = L('PIN incorrecto', 'Wrong PIN')
+      }
       m.querySelector('[data-ok]')!.addEventListener('click', go)
       m.querySelector('[data-rpin]')!.addEventListener('keydown', (e) => (e as KeyboardEvent).key === 'Enter' && go())
       return
@@ -196,7 +200,7 @@ export function revenueView(charts: () => string, table: (n: number) => string) 
 async function stripePanel(m: HTMLElement) {
   const chip = m.querySelector('[data-stripe]') as HTMLElement
   const out = m.querySelector('[data-stx]') as HTMLElement
-  const r = await fetch('./api/transactions', { headers: { 'x-revenue-pin': '4441' }, cache: 'no-store' }).catch(() => null)
+  const r = await fetch('./api/transactions', { headers: { 'x-revenue-pin': sessionStorage.getItem('cm.revenuePin') ?? '' }, cache: 'no-store' }).catch(() => null)
   if (!r || r.status === 503 || !r.ok) {
     chip.textContent = L('modo demo', 'demo mode')
     return
