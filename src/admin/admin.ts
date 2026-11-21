@@ -189,6 +189,7 @@ function panel(el: HTMLElement, close: () => void) {
     aside.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab))
     main.scrollTop = 0
     delete main.dataset.open
+    delete main.dataset.synced
     if (tab in LISTS) return listView(main, tab as ListKey, render)
     if (tab.startsWith('h-')) return hallsView(tab.slice(2) as any)(main, render)
     ;(views[tab] ?? views.resumen)(main, render)
@@ -214,11 +215,22 @@ const views: Record<string, (m: HTMLElement, rerender: () => void) => void> = {
       <div class="sec glass"><h3 class="serif">${L('Últimos pagos', 'Latest payments')}</h3>${payTable(8)}</div>`
   },
   solicitudes(m, rr) {
+    if (!m.dataset.synced) {
+      m.dataset.synced = '1'
+      fetch('./api/submit', { headers: { 'x-admin-pin': sessionStorage.getItem('cm.adminPin') ?? '' }, cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => {
+          const have = new Set(content.data.submissions.map((x) => x.id))
+          const fresh = ((j?.items ?? []) as typeof content.data.submissions).filter((x) => !have.has(x.id))
+          if (fresh.length) (content.update((d) => d.submissions.unshift(...fresh.sort((a, b) => b.at - a.at))), rr())
+        })
+        .catch(() => {})
+    }
     const subs = content.data.submissions
     let filter = (m.dataset.filter as string) || 'todas'
     const count = (st: string) => subs.filter((s) => (s.status ?? 'pendiente') === st).length
     const shown = subs.filter((s) => filter === 'todas' || (s.status ?? 'pendiente') === filter)
-    m.innerHTML = `<h1 class="serif">${L('Solicitudes de convocatoria', 'Open call submissions')}</h1><p class="lead">${L('Revisa, aprueba o rechaza las propuestas que llegan desde la sala de Exposiciones Temporales.', 'Review, approve or reject proposals sent from the Temporary Exhibitions hall.')}</p>
+    m.innerHTML = `<h1 class="serif">${L('Solicitudes de convocatoria', 'Open call submissions')}</h1><p class="lead">${L('Revisa, aprueba o rechaza las propuestas que llegan desde el kiosco de convocatorias del lobby.', 'Review, approve or reject proposals sent from the Temporary Exhibitions hall.')}</p>
       <div class="row" style="margin-bottom:14px">${[['todas', L('Todas', 'All'), subs.length], ['pendiente', L('Pendientes', 'Pending'), count('pendiente')], ['aprobada', L('Aprobadas', 'Approved'), count('aprobada')], ['rechazada', L('Rechazadas', 'Rejected'), count('rechazada')]].map(([k, l, n]) => `<button class="btn sm ${filter === k ? 'primary' : ''}" data-filter="${k}">${l} · ${n}</button>`).join('')}</div>
       <div class="subs">${shown.map((s) => `<div class="sub sec glass st-${s.status ?? 'pendiente'}"><div class="row" style="justify-content:space-between"><div><span class="kicker">${timeAgo(s.at)} · ${esc(s.status ?? 'pendiente')}</span><h3 class="serif">${esc(s.title)}</h3><small>${esc(s.name)} · <a href="mailto:${esc(s.email)}">${esc(s.email)}</a>${s.link ? ` · <a href="${esc(s.link)}" target="_blank" rel="noopener">${L('portafolio', 'portfolio')}</a>` : ''}</small></div>
         <div class="row"><button class="btn sm" data-st="aprobada" data-id="${s.id}">✓ ${L('Aprobar', 'Approve')}</button><button class="btn sm ghost" data-st="rechazada" data-id="${s.id}">✕ ${L('Rechazar', 'Reject')}</button><button class="btn sm ghost" data-st="pendiente" data-id="${s.id}">↺</button><button class="btn sm ghost" data-del="${s.id}">${L('Eliminar', 'Delete')}</button></div></div>

@@ -45,6 +45,7 @@ class ContentStore {
     try {
       const r = await fetch('./api/content', { cache: 'no-store' })
       this.remote = r.status === 503 ? 'off' : 'on'
+      if (r.status === 404) this.push()
       if (!r.ok) return false
       const j = await r.json()
       this.data = merge(j.content)

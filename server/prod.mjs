@@ -1,4 +1,4 @@
-// Production server: serves the built museum from /dist and the pey API from /api on one origin.
+// Production server: serves the built museum from /dist and the API from /api on one origin.
 import http from 'node:http'
 import { readFile, stat } from 'node:fs/promises'
 import { extname, join, normalize } from 'node:path'
