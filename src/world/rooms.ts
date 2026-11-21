@@ -520,7 +520,17 @@ const builders: Partial<Record<RoomId, Builder>> = {
     const stickers = new THREE.Group()
     const srng = mulberry32(77)
     for (let i = 0; i < 36; i++) {
-      const sh = new THREE.Mesh(new THREE.CircleGeometry(0.22 + srng() * 0.12, i % 3 ? 24 : 4), new THREE.MeshPhysicalMaterial({ color: new THREE.Color().setHSL(0.7 + srng() * 0.25, 0.8, 0.65), iridescence: 1, metalness: 0.6, roughness: 0.2, emissive: new THREE.Color().setHSL(0.75, 0.8, 0.15) }))
+      const sh = new THREE.Mesh(
+        new THREE.CircleGeometry(0.22 + srng() * 0.12, i % 3 ? 24 : 4),
+        new THREE.MeshPhysicalMaterial({
+          color: new THREE.Color().setHSL(0.7 + srng() * 0.25, 0.8, 0.5),
+          iridescence: 0.6,
+          metalness: 0.35,
+          roughness: 0.42,
+          emissive: new THREE.Color().setHSL(0.75, 0.8, 0.05),
+          emissiveIntensity: 0.12,
+        }),
+      )
       sh.position.set((i % 9) * 0.6 - 2.4, Math.floor(i / 9) * 0.6, 0)
       sh.rotation.z = srng() * 3
       stickers.add(sh)
