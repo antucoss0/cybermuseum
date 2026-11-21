@@ -95,13 +95,36 @@ export class Nav {
     return null
   }
 
+  private escapePoint(x: number, z: number, radius: number, preferred: Region | null) {
+    const point = (px: number, pz: number) => {
+      const region = this.walkable(px, pz, radius)
+      return region ? { x: px, z: pz, y: this.heightIn(region, px, pz), room: region.room, region } : null
+    }
+    const exact = point(x, z)
+    if (exact) return exact
+    for (let distance = 0.25; distance <= 12; distance += 0.25) {
+      const steps = Math.max(8, Math.ceil((Math.PI * 2 * distance) / 0.5))
+      let fallback: ReturnType<typeof point> = null
+      for (let i = 0; i < steps; i++) {
+        const angle = (i / steps) * Math.PI * 2
+        const candidate = point(x + Math.cos(angle) * distance, z + Math.sin(angle) * distance)
+        if (!candidate) continue
+        if (candidate.region === preferred) return candidate
+        fallback ??= candidate
+      }
+      if (fallback) return fallback
+    }
+    return null
+  }
+
   /** Slides a move along walls. Returns the new position (y = floor height). */
   move(x: number, z: number, dx: number, dz: number, radius = 0.35) {
-    const region = this.find(x, z, 0)
-    const escaped = this.freePoint(x, z, radius, region)
-    if (escaped) {
-      x = escaped.x
-      z = escaped.z
+    if (!this.clear(x, z, radius)) {
+      const escaped = this.escapePoint(x, z, radius, this.find(x, z, 0))
+      if (escaped) {
+        x = escaped.x
+        z = escaped.z
+      }
     }
     let rg = this.walkable(x + dx, z + dz, radius)
     if (rg) return { x: x + dx, z: z + dz, y: this.heightIn(rg, x + dx, z + dz), room: rg.room, ok: true }
