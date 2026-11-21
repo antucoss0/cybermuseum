@@ -618,14 +618,16 @@ const builders: Partial<Record<RoomId, Builder>> = {
     if (kind === 'mirador') {
       const centerZ = z0 - w.L / 2
       const radius = Math.min(w.W * 0.46, w.H * 0.62)
+      const slitPhi = Math.PI / 2
+      const slitHalf = 0.42
       const domeMat = new THREE.MeshPhysicalMaterial({ color: '#211a32', metalness: 0.22, roughness: 0.48, side: THREE.DoubleSide })
       for (const geo of [
-        new THREE.SphereGeometry(radius, 32, 16, 0, Math.PI - 0.32, 0, Math.PI / 2),
-        new THREE.SphereGeometry(radius, 32, 16, Math.PI + 0.32, Math.PI - 0.32, 0, Math.PI / 2),
+        new THREE.SphereGeometry(radius, 32, 16, 0, slitPhi - slitHalf, 0, Math.PI / 2),
+        new THREE.SphereGeometry(radius, 32, 16, slitPhi + slitHalf, Math.PI * 2 - slitPhi - slitHalf, 0, Math.PI / 2),
       ]) local(w, new THREE.Mesh(geo, domeMat), 0, centerZ, 3.1)
-      const slit = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.995, 16, 16, Math.PI - 0.32, 0.64, 0, Math.PI / 2), galaxyWindowMat())
+      const slit = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.995, 16, 16, slitPhi - slitHalf, slitHalf * 2, 0, Math.PI / 2), galaxyWindowMat())
       local(w, slit, 0, centerZ, 3.1)
-      for (const phi of [Math.PI - 0.32, Math.PI + 0.32]) {
+      for (const phi of [slitPhi - slitHalf, slitPhi + slitHalf]) {
         const points: THREE.Vector3[] = []
         for (let i = 0; i <= 24; i++) {
           const theta = (i / 24) * Math.PI / 2
@@ -662,7 +664,7 @@ const builders: Partial<Record<RoomId, Builder>> = {
       }
       const saddle = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.34, 0.22, 12), P.gold)
       saddle.position.y = 1.82
-      const axis = new THREE.Vector3(-0.72, 0.68, -0.12).normalize()
+      const axis = new THREE.Vector3(0.24, 0.65, 0.72).normalize()
       const axisRotation = new THREE.Quaternion().setFromUnitVectors(up, axis)
       const pivot = new THREE.Vector3(0, 2.28, 0)
       const joint = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), P.gold)
