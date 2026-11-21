@@ -150,7 +150,7 @@ function pieceVisual(hall: Hall, p: Piece) {
   const frame = new THREE.Group()
   const pic = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.4), mat)
   pic.position.set(0, 2.2, 0.06)
-  const back = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.6, 0.1), M.gold)
+  const back = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.6, 0.1), new THREE.MeshStandardMaterial({ color: '#8a6a2c', metalness: 0.9, roughness: 0.4 }))
   back.position.y = 2.2
   frame.add(back, pic)
   return { obj: frame, onWall: true }
@@ -204,7 +204,7 @@ export function buildSpaces(root: THREE.Group, nav: Nav, c: Content, wings: Wing
     g.position.set(cx, 0, cz)
     root.add(g)
     nav.rect('salas', cx, cz, 0, W / 2, Lh / 2, 0, 0, hall.id)
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, Lh), M.marble)
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, Lh), new THREE.MeshStandardMaterial({ color: '#1a1626', roughness: 0.35, metalness: 0.4 }))
     floor.rotation.x = -Math.PI / 2
     g.add(floor)
     const H = 7
@@ -222,9 +222,9 @@ export function buildSpaces(root: THREE.Group, nav: Nav, c: Content, wings: Wing
     ceil.rotation.x = Math.PI / 2
     ceil.position.y = H
     g.add(ceil)
-    const lamp = new THREE.PointLight(hall.color, 40, 0, 1.4)
+    const lamp = new THREE.PointLight(hall.color, 14, 0, 1.6)
     lamp.position.set(0, H - 1, 0)
-    g.add(lamp, new THREE.PointLight('#ffffff', 18, 0, 1.6).translateY(H - 1).translateZ(-Lh / 4))
+    g.add(lamp, new THREE.PointLight('#ffffff', 6, 0, 1.8).translateY(H - 1).translateZ(-Lh / 4))
     const intro = textPanel(tx(hall, 'name'), tx(hall, 'curatorial'), 5.2, 2.6, hall.color, tx(hall, 'theme'))
     intro.position.set(0, 3, -Lh / 2 + 0.02)
     g.add(intro)

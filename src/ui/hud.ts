@@ -367,7 +367,7 @@ export class Hud {
     const c = calls.find((x) => x.id === selected)
     if (!c) {
       this.modal('call', `<span class="kicker">${L('Convocatorias', 'Open calls')}</span><h2 class="serif">${L('Participa en el museo', 'Join the museum')}</h2>
-        <div class="events">${calls.map((x) => `<button class="ev btn ghost" data-call="${x.id}" style="text-align:left;display:block;width:100%"><span class="kicker">${x.open ? L('Abierta', 'Open') : L('Cerrada', 'Closed')} · ${L('cierre', 'deadline')} ${esc(x.deadline)}</span><b>${esc(tx(x, 'title'))}</b><p class="muted">${esc(tx(x, 'description'))}</p></button>`).join('')}</div>`)
+        <div class="events">${calls.map((x) => `<button class="ev btn ghost" data-call="${x.id}" style="text-align:left;display:block;width:100%"><span class="kicker" style="display:block">${x.open ? L('Abierta', 'Open') : L('Cerrada', 'Closed')} · ${L('cierre', 'deadline')} ${esc(x.deadline)}</span><b>${esc(tx(x, 'title'))}</b><p class="muted">${esc(tx(x, 'description'))}</p></button>`).join('')}</div>`)
         .querySelectorAll<HTMLButtonElement>('[data-call]').forEach((b) => (b.onclick = () => this.openCalls(b.dataset.call)))
       return
     }
