@@ -5,6 +5,7 @@ import '@fontsource/roboto-mono/500.css'
 import './style.css'
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 import { Engine } from './core/engine'
 import { L, tx } from './core/i18n'
 import { CORRIDOR_END, LOBBY_R } from './world/building'
@@ -16,6 +17,7 @@ import { checkSession } from './payments/provider'
 import { createSky } from './world/sky'
 import { createCloud } from './world/cloud'
 import { shared } from './world/materials'
+import { configurePbr } from './world/pbr'
 import { buildWorld, type World } from './world/world'
 import type { Hooks } from './world/rooms'
 import type { SpaceHooks } from './world/spaces'
@@ -34,6 +36,7 @@ const params = new URLSearchParams(location.search)
 const quality = (params.get('q') as 'low' | 'mid' | 'high') || detectQuality()
 const ui = document.getElementById('ui')!
 const engine = new Engine(document.getElementById('gl') as HTMLCanvasElement, quality)
+configurePbr(engine.renderer, quality)
 const { scene, camera } = engine
 const xr = new XR(engine)
 const unlockAudio = () => audio.unlock()
@@ -41,8 +44,19 @@ addEventListener('pointerdown', unlockAudio)
 addEventListener('keydown', unlockAudio)
 
 const pmrem = new THREE.PMREMGenerator(engine.renderer)
+pmrem.compileEquirectangularShader()
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
-scene.environmentIntensity = 0.35
+scene.environmentIntensity = 0.5
+new RGBELoader().load(
+  '/env/night.hdr',
+  (hdr) => {
+    scene.environment = pmrem.fromEquirectangular(hdr).texture
+    hdr.dispose()
+    pmrem.dispose()
+  },
+  undefined,
+  (error) => console.warn('Night environment failed to load; using the studio fallback.', error),
+)
 
 const sky = createSky()
 sky.setPalette(content.data.settings.palette)
