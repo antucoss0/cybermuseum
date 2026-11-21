@@ -1,12 +1,12 @@
 import { buildExterior } from './exterior'
-import { L } from '../core/i18n'
+import { L, tx } from '../core/i18n'
 import * as THREE from 'three'
 import type { Content, RoomId } from '../content/types'
 import type { PaymentEvent } from '../payments/bus'
 import { Nav } from './nav'
 import { CORRIDOR_END, WING_DEFS, buildLobby, makeWing, type Interactable, type Wing } from './building'
 import { buildRoom, type Hooks, type RoomRuntime } from './rooms'
-import { buildSpaces, type SpaceHooks } from './spaces'
+import { buildSpaces, textPanel, type SpaceHooks } from './spaces'
 
 export interface World {
   group: THREE.Group
@@ -40,6 +40,19 @@ export function buildWorld(c: Content, hooks: Hooks & SpaceHooks): World {
   const lobby = buildLobby(group, nav, c)
   const exterior = buildExterior(group, wings)
   const spaces = buildSpaces(group, nav, c, wings, add, hooks)
+  for (const [x, title, body, col, act] of [
+    [7, L('Convocatorias', 'Open calls'), L('Lee los términos y postúlate', 'Read the terms and apply'), '#ff9be9', () => hooks.openCalls()],
+    [-7, tx(c.about, 'title'), L('Ethercoded · la historia del museo', 'Ethercoded · the museum story'), '#8fb4ff', () => hooks.openAbout()],
+  ] as const) {
+    const k = textPanel(title, body, 2.4, 1.1, col)
+    k.position.set(x, 2.1, 0)
+    k.rotation.y = x > 0 ? -Math.PI / 2 : Math.PI / 2
+    const back = k.clone()
+    back.rotation.y += Math.PI
+    back.position.x += x > 0 ? 0.02 : -0.02
+    group.add(k, back)
+    add({ id: 'kiosk' + x, pos: new THREE.Vector3(x > 0 ? x - 1.4 : x + 1.4, 0, 0), r: 2, label: title, room: 'lobby', action: act })
+  }
   add({ id: 'altar', pos: new THREE.Vector3(0, 0, 4.6), r: 2.2, label: L('Ofrenda · encender la nube', 'Offering · light the cloud'), room: 'lobby', action: () => hooks.donate() })
   add({ id: 'events', pos: new THREE.Vector3(0, 0, -4.6), r: 2.2, label: L('Agenda de eventos', 'Events calendar'), room: 'lobby', action: () => hooks.openEvents() })
   const garden = runtimes.find((r) => r.addPlant)
