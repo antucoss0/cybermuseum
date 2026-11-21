@@ -228,7 +228,8 @@ export function buildSpaces(root: THREE.Group, nav: Nav, c: Content, wings: Wing
     const floorY = inNarthex ? w.floorY * Math.min(1, Math.max(0, (-bay.z - LOBBY_R) / 10)) : w.floorY
     const triggerX = bay.anchor.x - bay.side * 1.2
     const ip = w.world(triggerX, bay.z, floorY)
-    const returnPoint = w.world(bay.anchor.x - bay.side * 1.45, bay.z, floorY)
+    const returnTarget = w.world(0, bay.z, floorY)
+    const returnPoint = nav.freePoint(returnTarget.x, returnTarget.z) ?? returnTarget
     returns.set(hall.id, { x: returnPoint.x, z: returnPoint.z, yaw: (w.k * Math.PI) / 4 })
     const label = hall.external ? `${L('Abrir', 'Open')} · ${tx(hall, 'name')} ↗` : `${L('Entrar', 'Enter')} · ${tx(hall, 'name')}`
     add({
