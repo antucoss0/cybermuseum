@@ -303,8 +303,8 @@ engine.onTick((dt, t) => {
   // nearest interactable
   let best: (typeof world.interactables)[number] | null = null
   let bd = Infinity
-  const fx = Math.sin(controller.yaw)
-  const fz = -Math.cos(controller.yaw)
+  const fx = Math.sin(controller.camYaw)
+  const fz = -Math.cos(controller.camYaw)
   for (const it of world.interactables) {
     const dx = it.pos.x - controller.x
     const dz = it.pos.z - controller.z
