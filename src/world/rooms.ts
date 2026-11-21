@@ -77,11 +77,12 @@ function gallery(w: Wing, c: Content, add: (i: Interactable) => void, hooks: Hoo
   const anchors = [...w.bays, ...w.corridorBays].filter((bay) => !bay.chapel)
   list.forEach((a, i) => {
     const bay = anchors[i]
-    if (!bay) return
-    const side = bay.side
-    const lx = bay.anchor.x - side * 1.15
-    const lz = bay.z
-    const st = paintingStele(a)
+    const overflow = i - anchors.length
+    const side = bay?.side ?? (overflow % 2 === 0 ? -1 : 1)
+    const lx = bay ? bay.anchor.x - side * 1.15 : side * (w.W / 4)
+    const bayLength = w.L / Math.max(1, Math.round(w.L / (w.W / 2)))
+    const lz = bay?.z ?? z0 - w.L + bayLength / 2 + Math.floor(overflow / 2) * bayLength
+    const st = paintingStele(a, 2.4, !bay)
     local(w, st, lx, lz, 0, side * -Math.PI / 2)
     w.obstacle(lx, lz, 1.0)
     add({ id: a.id, pos: w.world(lx - side * 1.6, lz), r: 2.2, label: `${L('Ver', 'View')} · ${tx(a, 'title')}`, room: w.room, action: () => hooks.openArt(a) })

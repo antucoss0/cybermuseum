@@ -40,18 +40,21 @@ export function textureFor(gen: string | undefined, seed: number | undefined, me
 }
 
 /** Framed 2D artwork on a black monolith. Group origin is on the floor, facing +z. */
-export function paintingStele(a: Artwork, w = 2.4) {
+export function paintingStele(a: Artwork, w = 2.4, doubleSided = false) {
   const g = new THREE.Group()
   const h = w * 1.25
   const slab = new THREE.Mesh(new THREE.BoxGeometry(w + 0.8, h + 1.9, 0.4), M.obsidian)
   slab.position.y = (h + 1.9) / 2
   g.add(slab)
-  const img = new THREE.Mesh(new THREE.PlaneGeometry(w, h), textureFor(a.gen, a.seed, a.media, a.kind))
-  img.position.set(0, 1.2 + h / 2, 0.21)
-  g.add(img)
-  const fr = archOutline(w + 0.3, h + 0.5, 0.045)
-  fr.position.set(0, 1.05, 0.23)
-  g.add(fr)
+  for (const side of doubleSided ? [1, -1] : [1]) {
+    const img = new THREE.Mesh(new THREE.PlaneGeometry(w, h), textureFor(a.gen, a.seed, a.media, a.kind))
+    img.position.set(0, 1.2 + h / 2, side * 0.21)
+    img.rotation.y = side < 0 ? Math.PI : 0
+    const fr = archOutline(w + 0.3, h + 0.5, 0.045)
+    fr.position.set(0, 1.05, side * 0.23)
+    fr.rotation.y = side < 0 ? Math.PI : 0
+    g.add(img, fr)
+  }
   const base = new THREE.Mesh(new THREE.BoxGeometry(w + 1.2, 0.2, 1.2), P.marbleBlack)
   base.position.y = 0.1
   g.add(base)
